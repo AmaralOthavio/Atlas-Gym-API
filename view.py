@@ -2,12 +2,35 @@ from main import app, con
 from flask_bcrypt import generate_password_hash, check_password_hash
 import jwt
 import config
+from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 from flask import jsonify, request
 
 # Funções globais
 # Funções de token
 senha_secreta = app.config['SECRET_KEY']
+
+
+def agendar_exclusao_token(token, horas):
+    scheduler = BackgroundScheduler()
+    horario_excluir = datetime.datetime.now() + datetime.timedelta(hours=horas)
+    scheduler.add_job(func=excluir_token_expirado, args=(token,), trigger='date', next_run_time=horario_excluir)
+    scheduler.start()
+
+
+def excluir_token_expirado(token):
+    cur = con.cursor()
+    try:
+        cur.execute("DELETE FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token,))
+        con.commit()
+    except Exception:
+        print("Erro em excluir_token_expirado")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 def generate_token(user_id):
@@ -96,6 +119,7 @@ def cadastrar_normal():
     genero = data.get('genero')
     altura = data.get('altura')
     peso = data.get('peso')
+    desc_obj = data.get('descricao_objetivos')
 
     his_med = data.get('historico_medico_relevante')
     his_med = his_med if his_med else "Nenhum"
@@ -105,8 +129,6 @@ def cadastrar_normal():
 
     desc_lim = data.get('descricao_limitacoes')
     desc_lim = desc_lim if desc_lim else "Nenhum"
-
-    desc_obj = data.get('descricao_objetivos')
 
     desc_tr = data.get('descricao_treinamentos_anteriores')
     desc_tr = desc_tr if desc_tr else "Nenhuma"
@@ -184,34 +206,41 @@ def cadastrar_normal():
         # Verificações de duplicatas
         cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf,))
         resposta = cur.fetchone()
-        if resposta[0] == cpf:
-            return jsonify({"message": "CPF já cadastrado"}), 401
+        if resposta:
+            if resposta[0] == cpf:
+                return jsonify({"message": "CPF já cadastrado"}), 401
 
         cur.execute("SELECT EMAIL FROM USUARIOS WHERE EMAIL = ?", (email,))
         resposta = cur.fetchone()
-        if resposta[0] == email:
-            return jsonify({"message": "Email já cadastrado"}), 401
+        if resposta:
+            if resposta[0] == email:
+                return jsonify({"message": "Email já cadastrado"}), 401
 
         cur.execute("SELECT TELEFONE FROM USUARIOS WHERE EMAIL = ?", (tel,))
         resposta = cur.fetchone()
-        if resposta[0] == tel:
-            return jsonify({"message": "Telefone já cadastrado"}), 401
+        if resposta:
+            if resposta[0] == tel:
+                return jsonify({"message": "Telefone já cadastrado"}), 401
 
         senha2 = generate_password_hash(senha1).decode('utf-8')
 
-        cur.execute("""INSERT INTO USUARIOS(NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, GENERO, ALTURA, 
-        PESO, HISTORICO_MEDICO_RELEVANTE, HISTORICO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
-        DESCRICAO_TREINAMENTOS_ANTERIORES) (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+        cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, GENERO, ALTURA, 
+        PESO, HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
+        DESCRICAO_TREINAMENTOS_ANTERIORES) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
                     (nome, senha2, cpf, email, tel, data_nasc,
                      genero, altura, peso, his_med, desc_med,
                      desc_lim, desc_obj, desc_tr))
         con.commit()
+        return jsonify({"message": "Usuário cadastrado com sucesso!"}), 200
 
     except Exception as e:
         print("Erro em /usuarios/cadastrar")
         return jsonify({"message": "Erro em /usuarios/cadastrar", "erro": f"{e}"}), 500
     finally:
-        cur.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 global_contagem_erros = {}
@@ -225,36 +254,70 @@ def logar():
     senha = data.get("senha")
 
     cur = con.cursor()
-    # Checando se a senha está correta
-    cur.execute("SELECT senha, id_usuario FROM usuarios WHERE email = ?", (email,))
-    resultado = cur.fetchone()
+    try:
+        # Checando se a senha está correta
+        cur.execute("SELECT senha, id_usuario FROM usuarios WHERE email = ?", (email,))
+        resultado = cur.fetchone()
 
-    if resultado:
-        senha_hash = resultado[0]
-        id_user = resultado[1]
-        ativo = cur.execute("SELECT ATIVO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
-        ativo = ativo.fetchone()[0]
-        if not ativo:
-            return jsonify(
-                {
-                    "message": "Este usuário está inativado.",
-                    "id_user": id_user
-                }
-            ), 401
+        if resultado:
+            senha_hash = resultado[0]
+            id_user = resultado[1]
+            ativo = cur.execute("SELECT ATIVO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
+            ativo = ativo.fetchone()[0]
+            if not ativo:
+                return jsonify(
+                    {
+                        "message": "Este usuário está inativado.",
+                        "id_user": id_user
+                    }
+                ), 401
 
-        if check_password_hash(senha_hash, senha):
+            if check_password_hash(senha_hash, senha):
 
-            tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
-            tipo = tipo.fetchone()[0]
-            token = generate_token(id_user)
-            # Excluir as tentativas que deram errado
-            id_user_str = f"usuario-{id_user}"
-            if id_user_str in global_contagem_erros:
-                del global_contagem_erros[id_user_str]
+                tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
+                tipo = tipo.fetchone()[0]
+                token = generate_token(id_user)
+                # Excluir as tentativas que deram errado
+                id_user_str = f"usuario-{id_user}"
+                if id_user_str in global_contagem_erros:
+                    del global_contagem_erros[id_user_str]
 
-            # Enviar o token
-            token = remover_bearer(token)
-            return jsonify({"message": "Login realizado com sucesso!", "token": f"{token}"})
+                # Enviar o token
+                token = remover_bearer(token)
+                return jsonify({"message": "Login realizado com sucesso!", "token": f"{token}"})
+            else:
+                # Ignorar isso tudo se o usuário for administrador ou personal trainer
+                tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
+                tipo = tipo.fetchone()[0]
+
+                if tipo != 3 and tipo != 2:
+                    id_user_str = f"usuario-{id_user}"
+                    if id_user_str not in global_contagem_erros:
+                        global_contagem_erros[id_user_str] = 1
+                    else:
+                        global_contagem_erros[id_user_str] += 1
+
+                        if global_contagem_erros[id_user_str] == 3:
+                            cur.execute("UPDATE USUARIOS SET ATIVO = FALSE WHERE ID_USUARIO = ?", (id_user,))
+                            con.commit()
+
+                            return jsonify({"message": "Tentativas excedidas, usuário inativado."}), 401
+                        elif global_contagem_erros[id_user_str] > 3:
+                            global_contagem_erros[id_user_str] = 1
+                            # Em teoria é para ser impossível a execução chegar aqui
+
+                    return jsonify({"message": "Credenciais inválidas."}), 401
+        else:
+            return jsonify({"message": "Usuário não encontrado."}), 404
+    except Exception:
+        print("Erro em logar")
+        raise
+
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 @app.route('/logout', methods=["GET"])
@@ -264,14 +327,20 @@ def logout():
         return jsonify({"message": "Você já saiu de sua conta"}), 401
 
     token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({"message": "Token não encontrado para invalidar"}), 404
     token = remover_bearer(token)
 
     cur = con.cursor()
     try:
-        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) ?", (token, ))
+        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token, ))
+        if cur.fetchone():
+            return jsonify({"message": "Logout já feito com esse token"}), 401
+
+        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) VALUES (?)", (token, ))
         con.commit()
+
+        agendar_exclusao_token(token, 3)
+
+        return jsonify({"message": "Logout bem-sucedido!"}), 200
 
     except Exception as e:
         return jsonify({"message": "Erro interno de servidor", "error": f"{e}"}), 500
