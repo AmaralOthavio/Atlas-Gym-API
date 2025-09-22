@@ -106,23 +106,24 @@ def cadastrar_normal():
     desc_lim = data.get('descricao_limitacoes')
     desc_lim = desc_lim if desc_lim else "Nenhum"
 
-    tipo = data.get('tipo')
     desc_obj = data.get('descricao_objetivos')
 
     desc_tr = data.get('descricao_treinamentos_anteriores')
     desc_tr = desc_tr if desc_tr else "Nenhuma"
 
     if not all(
-            [cpf, email, tel, data_nasc, genero, altura, peso, tipo, desc_obj]):
+            [cpf, email, tel, data_nasc, genero, altura, peso, desc_obj]):
         return jsonify({"message": """Todos os campos são obrigatórios, 
         exceto medicamentos, limitações, histórico médico e experiência anteriores"""}), 400
+    cpf1 = str(cpf)
+    tel1 = str(tel)
 
     # Verificações de comprimento de dados
     if len(nome) > 895:
         return jsonify({"message": "Nome grande demais, o limite é 895 caracteres"}), 401
-    if len(cpf) != 11:
+    if len(cpf1) != 11:
         return jsonify({"message": "O CPF precisa ter 11 dígitos"}), 401
-    if len(tel) != 13:
+    if len(tel1) != 13:
         return jsonify({"message": """O telefone precisa ser enviado
          em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234"""}), 401
     if len(genero) > 100:
@@ -133,11 +134,11 @@ def cadastrar_normal():
         return jsonify({"message": "E-mail inválido"}), 401
     if peso < 0 or peso > 419:
         return jsonify({"message": "Peso inválido"}), 401
-    if his_med > 1000:
+    if len(his_med) > 1000:
         return jsonify({"message": "Limite de caracteres de histórico médico excedido (1000)"}), 401
-    if desc_med > 1000:
+    if len(desc_med) > 1000:
         return jsonify({"message": "Limite de caracteres de descrição de medicamentos excedido (1000)"}), 401
-    if desc_lim > 1000:
+    if len(desc_lim) > 1000:
         return jsonify({"message": "Limite de caracteres de descrição de limitações excedido (1000)"}), 401
 
     # Verificações de senha
