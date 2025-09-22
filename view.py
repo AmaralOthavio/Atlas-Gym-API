@@ -9,6 +9,7 @@ from flask import jsonify, request
 # Funções de token
 senha_secreta = app.config['SECRET_KEY']
 
+
 def generate_token(user_id):
     payload = {
         "id_usuario": user_id,
@@ -46,7 +47,7 @@ def verificar_user(tipo, trazer_pl):
             cur.execute("SELECT 1 FROM USUARIOS WHERE ID_USUARIO = ? AND (TIPO = 2 OR TIPO = 3)", (id_logado,))
             biblio = cur.fetchone()
             if not biblio:
-                return 4  # Nível bibliotecário requerido
+                return 4  # Nível Personal trainer requerido
 
         elif tipo == 3:
             cur.execute("SELECT 1 FROM USUARIOS WHERE ID_USUARIO = ? AND TIPO = 3", (id_logado,))
@@ -81,7 +82,8 @@ def informar_verificacao(tipo=0, trazer_pl=False):
             return verificacao
         return None
 
-@app.route("/usuarios/cadastrar", methods=["POST"])
+
+@app.route('/usuarios/cadastrar', methods=["POST"])
 def cadastrar_normal():
     data = request.get_json()
     nome = data.get('nome')
@@ -94,15 +96,26 @@ def cadastrar_normal():
     genero = data.get('genero')
     altura = data.get('altura')
     peso = data.get('peso')
+
     his_med = data.get('historico_medico_relevante')
+    his_med = his_med if his_med else "Nenhum"
+
     desc_med = data.get('descricao_medicamentos')
+    desc_med = desc_med if desc_med else "Nenhum"
+
     desc_lim = data.get('descricao_limitacoes')
+    desc_lim = desc_lim if desc_lim else "Nenhum"
+
     tipo = data.get('tipo')
     desc_obj = data.get('descricao_objetivos')
-    desc_tr = data.get('descricao_treinamentos_anteriores')
 
-    if not all([cpf, email, tel, data_nasc, genero, altura, peso, his_med, desc_med, desc_lim, tipo, desc_obj, desc_tr]):
-        return jsonify({"message": "Todos os campos são obrigatórios"}), 400
+    desc_tr = data.get('descricao_treinamentos_anteriores')
+    desc_tr = desc_tr if desc_tr else "Nenhuma"
+
+    if not all(
+            [cpf, email, tel, data_nasc, genero, altura, peso, tipo, desc_obj]):
+        return jsonify({"message": """Todos os campos são obrigatórios, 
+        exceto medicamentos, limitações, histórico médico e experiência anteriores"""}), 400
 
     # Verificações de comprimento de dados
     if len(nome) > 895:
@@ -168,7 +181,7 @@ def cadastrar_normal():
     try:
         # Verificações a partir do banco de dados
         # Verificações de duplicatas
-        cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf, ))
+        cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf,))
         resposta = cur.fetchone()
         if resposta[0] == cpf:
             return jsonify({"message": "CPF já cadastrado"}), 401
@@ -187,9 +200,10 @@ def cadastrar_normal():
 
         cur.execute("""INSERT INTO USUARIOS(NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, GENERO, ALTURA, 
         PESO, HISTORICO_MEDICO_RELEVANTE, HISTORICO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
-        DESCRICAO_TREINAMENTOS_ANTERIORES) (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""", (nome, senha2, cpf, email, tel, data_nasc,
-                                                                                genero, altura, peso, his_med, desc_med,
-                                                                                desc_lim, desc_obj, desc_tr))
+        DESCRICAO_TREINAMENTOS_ANTERIORES) (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
+                    (nome, senha2, cpf, email, tel, data_nasc,
+                     genero, altura, peso, his_med, desc_med,
+                     desc_lim, desc_obj, desc_tr))
         con.commit()
 
     except Exception as e:
@@ -228,7 +242,7 @@ def logar():
             ), 401
 
         if check_password_hash(senha_hash, senha):
-            # Pegar o tipo do usuário para levar à página certa
+
             tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
             tipo = tipo.fetchone()[0]
             token = generate_token(id_user)
@@ -236,3 +250,30 @@ def logar():
             id_user_str = f"usuario-{id_user}"
             if id_user_str in global_contagem_erros:
                 del global_contagem_erros[id_user_str]
+
+            # Enviar o token
+            token = remover_bearer(token)
+            return jsonify({"message": "Login realizado com sucesso!", "token": f"{token}"})
+
+
+@app.route('/logout', methods=["GET"])
+def logout():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return jsonify({"message": "Você já saiu de sua conta"}), 401
+
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"message": "Token não encontrado para invalidar"}), 404
+    token = remover_bearer(token)
+
+    cur = con.cursor()
+    try:
+        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) ?", (token, ))
+        con.commit()
+
+    except Exception as e:
+        return jsonify({"message": "Erro interno de servidor", "error": f"{e}"}), 500
+
+    finally:
+        cur.close()
