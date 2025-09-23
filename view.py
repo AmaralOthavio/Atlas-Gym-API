@@ -180,6 +180,10 @@ def cadastrar_cliente():
         return jsonify({"message": "Limite de caracteres de descrição de medicamentos excedido (1000)"}), 401
     if len(desc_lim) > 1000:
         return jsonify({"message": "Limite de caracteres de descrição de limitações excedido (1000)"}), 401
+    if len(desc_tr) > 1000:
+        return jsonify({"message": "Limite de caracteres de descrição de treinamentos anteriores excedido (1000)"}), 401
+    if len(desc_obj) > 1000:
+        return jsonify({"message": "Limite de caracteres de descrição de objetivos excedido (1000)"}), 401
 
     # Verificações de senha
     if len(senha1) < 8:
@@ -238,8 +242,8 @@ def cadastrar_cliente():
 
         senha2 = generate_password_hash(senha1).decode('utf-8')
 
-        cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, ALTURA, 
-        PESO, HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
+        cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, 
+        HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
         DESCRICAO_TREINAMENTOS_ANTERIORES) VALUES (?,?,?,?,?,?,?,?,?,1,?,?)""",
                     (nome, senha2, cpf1, email, tel1, data_nasc,
                      his_med, desc_med,
