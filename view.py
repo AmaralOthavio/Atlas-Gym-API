@@ -11,12 +11,14 @@ from flask import jsonify, request
 # Configurar JWTManager — assegure que main.py define app.config['JWT_SECRET_KEY']
 jwt = JWTManager(app)
 
+
 # Funções globais
 def agendar_exclusao_token(jti, horas):
     scheduler = BackgroundScheduler()
     horario_excluir = datetime.datetime.now() + datetime.timedelta(hours=horas)
     scheduler.add_job(func=excluir_token_expirado, args=(jti,), trigger='date', next_run_time=horario_excluir)
     scheduler.start()
+
 
 def excluir_token_expirado(jti):
     cur = con.cursor()
@@ -130,8 +132,9 @@ def informar_verificacao(tipo=0, trazer_pl=False):
             return verificacao
         return None
 
+
 @app.route('/usuarios/cadastrar', methods=["POST"])
-def cadastrar_normal():
+def cadastrar_cliente():
     data = request.get_json()
     nome = data.get('nome')
     senha1 = data.get('senha')
@@ -140,9 +143,6 @@ def cadastrar_normal():
     email = email.lower()
     tel = data.get('telefone')
     data_nasc = data.get('data_nascimento')
-    genero = data.get('genero')
-    altura = data.get('altura')
-    peso = data.get('peso')
     desc_obj = data.get('descricao_objetivos')
 
     his_med = data.get('historico_medico_relevante')
@@ -158,13 +158,13 @@ def cadastrar_normal():
     desc_tr = desc_tr if desc_tr else "Nenhuma"
 
     if not all(
-            [cpf, email, tel, data_nasc, genero, altura, peso, desc_obj]):
+            [cpf, email, tel, data_nasc, desc_obj]):
         return jsonify({"message": """Todos os campos são obrigatórios, 
         exceto medicamentos, limitações, histórico médico e experiência anteriores"""}), 400
     cpf1 = str(cpf)
     tel1 = str(tel)
 
-    # Verificações de comprimento de dados
+    # Verificações de comprimento e formatação de dados
     if len(nome) > 895:
         return jsonify({"message": "Nome grande demais, o limite é 895 caracteres"}), 401
     if len(cpf1) != 11:
@@ -172,14 +172,8 @@ def cadastrar_normal():
     if len(tel1) != 13:
         return jsonify({"message": """O telefone precisa ser enviado
          em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234"""}), 401
-    if len(genero) > 100:
-        return jsonify({"message": "Limite de dígitos de gênero excedido (100)"}), 401
-    if altura > 2.51 or altura < 0:
-        return jsonify({"message": "Altura inválida"}), 401
     if '@' not in email:
         return jsonify({"message": "E-mail inválido"}), 401
-    if peso < 0 or peso > 419:
-        return jsonify({"message": "Peso inválido"}), 401
     if len(his_med) > 1000:
         return jsonify({"message": "Limite de caracteres de histórico médico excedido (1000)"}), 401
     if len(desc_med) > 1000:
@@ -223,10 +217,11 @@ def cadastrar_normal():
 
     cur = con.cursor()
     try:
-        cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf,))
+        cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf1,))
         resposta = cur.fetchone()
+        print(f"Resposta: {resposta}")
         if resposta:
-            if resposta[0] == cpf:
+            if resposta[0] == cpf1:
                 return jsonify({"message": "CPF já cadastrado"}), 401
 
         cur.execute("SELECT EMAIL FROM USUARIOS WHERE EMAIL = ?", (email,))
@@ -235,19 +230,19 @@ def cadastrar_normal():
             if resposta[0] == email:
                 return jsonify({"message": "Email já cadastrado"}), 401
 
-        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE EMAIL = ?", (tel,))
+        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ?", (tel1,))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] == tel:
+            if resposta[0] == tel1:
                 return jsonify({"message": "Telefone já cadastrado"}), 401
 
         senha2 = generate_password_hash(senha1).decode('utf-8')
 
-        cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, GENERO, ALTURA, 
+        cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, ALTURA, 
         PESO, HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
-        DESCRICAO_TREINAMENTOS_ANTERIORES) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)""",
-                    (nome, senha2, cpf, email, tel, data_nasc,
-                     genero, altura, peso, his_med, desc_med,
+        DESCRICAO_TREINAMENTOS_ANTERIORES) VALUES (?,?,?,?,?,?,?,?,?,1,?,?)""",
+                    (nome, senha2, cpf1, email, tel1, data_nasc,
+                     his_med, desc_med,
                      desc_lim, desc_obj, desc_tr))
         con.commit()
         return jsonify({"message": "Usuário cadastrado com sucesso!"}), 200
@@ -261,7 +256,9 @@ def cadastrar_normal():
         except Exception:
             pass
 
+
 global_contagem_erros = {}
+
 
 @app.route('/login', methods=["POST"])
 def logar():
