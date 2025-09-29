@@ -488,6 +488,32 @@ def cadastrar_administrador():
             pass
 
 
+@app.route("/usuarios/editar", methods=["PUT"])
+def editar_perfil():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+    id_usuario = informar_verificacao(trazer_pl=True)
+    id_usuario = id_usuario['id_usuario']
+
+    data = request.get_json()
+    nome = data.get("nome")
+    senha = data.get("senha")
+    cpf = data.get("cpf")
+    email = data.get("email")
+    tel = data.get("telefone")
+    data_nasc = data.get("data_nascimento")
+    his_med = data.get("historico_medico_relevante")
+    desc_med = data.get("descricao_medicamentos")
+    desc_lim = data.get("descricao_limitacoes")
+    desc_obj = data.get("descricao_objetivos")
+    desc_tr = data.get("descricao_treinamentos_anteriores")
+    form = data.get("formacao")
+    cref = data.get("cref")
+
+    try:
+
+
 global_contagem_erros = {}
 
 
