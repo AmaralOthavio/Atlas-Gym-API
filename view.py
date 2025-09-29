@@ -20,45 +20,6 @@ def agendar_exclusao_token(jti, horas):
     scheduler.add_job(func=excluir_token_expirado, args=(jti,), trigger='date', next_run_time=horario_excluir)
     scheduler.start()
 
-
-# TEMPORÁRIO - Adicione esta rota no view.py
-@app.route('/admin/criar-primeiro', methods=["POST"])
-def criar_primeiro_admin():
-    data = request.get_json()
-    nome = data.get('nome', 'Admin Atlas')
-    senha = data.get('senha', 'senha123')
-    email = data.get('email', 'admin@atlas.com')
-
-    # Hash automático da senha
-    senha_hash = generate_password_hash(senha).decode('utf-8')
-
-    cur = con.cursor()
-    try:
-        # Verificar se já existe
-        cur.execute("SELECT 1 FROM USUARIOS WHERE EMAIL = ?", (email,))
-        if cur.fetchone():
-            return jsonify({"message": "Admin já existe"}), 400
-
-        # Inserir com hash correto
-        cur.execute("""
-            INSERT INTO USUARIOS (NOME, SENHA, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, TIPO, ATIVO)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (nome, senha_hash, '99999999999', email, '5511000000000', '1980-01-01', 3, True))
-
-        con.commit()
-
-        return jsonify({
-            "message": "Admin criado com sucesso!",
-            "email": email,
-            "senha": "Use a senha que você definiu"
-        }), 200
-
-    except Exception as e:
-        return jsonify({"message": f"Erro: {e}"}), 500
-    finally:
-        cur.close()
-
-
 def excluir_token_expirado(jti):
     cur = con.cursor()
     try:
