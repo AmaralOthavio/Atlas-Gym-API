@@ -116,6 +116,7 @@ def cadastrar_cliente():
     email = email.lower()
     tel = data.get('telefone')
     data_nasc = data.get('data_nascimento')
+    data_nasc.replace("/", "-")
     desc_obj = data.get('descricao_objetivos')
 
     his_med = data.get('historico_medico_relevante')
@@ -138,7 +139,7 @@ def cadastrar_cliente():
     tel1 = str(tel)
 
     # Verificações de comprimento e formatação de dados
-    ano_nasc = datetime.datetime.strptime(data_nasc, "%d/%m/%Y")  # converte para datetime
+    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
@@ -260,15 +261,17 @@ def cadastrar_personal_trainer():
     form = data.get('formacao')
     cref = data.get('cref')
     data_nasc = data.get('data_nascimento')
+    data_nasc.replace("/", "-")
 
     if not all(
             [nome, data_nasc, senha1, cpf, email, tel, form, cref]):
         return jsonify({"message": """Todos os campos são obrigatórios""", "error": True}), 400
     cpf1 = str(cpf)
     tel1 = str(tel)
+    cref = str(cref)
 
     # Verificações de comprimento e formatação de dados
-    ano_nasc = datetime.datetime.strptime(data_nasc, "%d/%m/%Y")  # converte para datetime
+    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
@@ -285,6 +288,8 @@ def cadastrar_personal_trainer():
         return jsonify({"message": "E-mail inválido", "error": True}), 401
     if len(form) > 1000:
         return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
+    if len(cref) > 6:
+        return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
 
     # Verificações de senha
 
@@ -385,6 +390,7 @@ def cadastrar_administrador():
     email = email.lower()
     tel = data.get('telefone')
     data_nasc = data.get('data_nascimento')
+    data_nasc.replace("/", "-")
 
     if not all(
             [nome, data_nasc, senha1, cpf, email, tel]):
@@ -393,7 +399,7 @@ def cadastrar_administrador():
     tel1 = str(tel)
 
     # Verificações de comprimento e formatação de dados
-    ano_nasc = datetime.datetime.strptime(data_nasc, "%d/%m/%Y")  # converte para datetime
+    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
@@ -488,82 +494,186 @@ def cadastrar_administrador():
             pass
 
 
-# @app.route("/usuarios/editar", methods=["PUT"])
-# def editar_perfil():
-#     verificacao = informar_verificacao()
-#     if verificacao:
-#         return verificacao
-#     id_usuario = informar_verificacao(trazer_pl=True)
-#     id_usuario = id_usuario['id_usuario']
-#
-#     data = request.get_json()
-#     nome = data.get("nome")
-#     senha1 = data.get("senha")
-#     cpf = data.get("cpf")
-#     email = data.get("email")
-#     tel = data.get("telefone")
-#     data_nasc = data.get("data_nascimento")
-#     his_med = data.get("historico_medico_relevante")
-#     desc_med = data.get("descricao_medicamentos")
-#     desc_lim = data.get("descricao_limitacoes")
-#     desc_obj = data.get("descricao_objetivos")
-#     desc_tr = data.get("descricao_treinamentos_anteriores")
-#     form = data.get("formacao")
-#     cref = data.get("cref")
-#
-#     # Verificações de senha
-#
-#     if len(senha1) < 8:
-#         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
-#             uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
-#
-#     tem_maiuscula = False
-#     tem_minuscula = False
-#     tem_numero = False
-#     tem_caract_especial = False
-#     caracteres_especiais = "!@#$%^&*(),-.?\":{}|<>"
-#
-#     # Verifica cada caractere da senha
-#     for char in senha1:
-#         if char.isupper():
-#             tem_maiuscula = True
-#         elif char.islower():
-#             tem_minuscula = True
-#         elif char.isdigit():
-#             tem_numero = True
-#         elif char in caracteres_especiais:
-#             tem_caract_especial = True
-#
-#     # Verifica se todos os critérios foram atendidos
-#     if not tem_maiuscula:
-#         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
-#             uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
-#     if not tem_minuscula:
-#         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
-#             uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
-#     if not tem_numero:
-#         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
-#             uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
-#     if not tem_caract_especial:
-#         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
-#             uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
-#     cpf1 = str(cpf)
-#
-#     cur = con.cursor()
-#     try:
-#         # Verificações de duplicatas
-#         cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf1,))
-#         resposta = cur.fetchone()
-#         if resposta:
-#             if resposta[0] == cpf1:
-#                 return jsonify({""})
-#     except Exception:
-#         print("Erro em /usuarios/editar")
-#     finally:
-#         try:
-#             cur.close()
-#         except Exception:
-#             pass
+@app.route("/usuarios/editar", methods=["PUT"])
+def editar_perfil():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+    id_usuario = informar_verificacao(trazer_pl=True)
+    id_usuario = id_usuario['id_usuario']
+
+    data = request.get_json()
+    nome = data.get("nome")
+    senha1 = data.get("senha")
+    cpf = data.get("cpf")
+    email = data.get("email")
+    email = email.lower()
+    tel = data.get("telefone")
+    data_nasc = data.get("data_nascimento")
+    data_nasc.replace("/", "-")
+    his_med = data.get("historico_medico_relevante")
+    desc_med = data.get("descricao_medicamentos")
+    desc_lim = data.get("descricao_limitacoes")
+    desc_obj = data.get("descricao_objetivos")
+    desc_tr = data.get("descricao_treinamentos_anteriores")
+    form = data.get("formacao")
+    cref = data.get("cref")
+
+    # Verificações de comprimento e formatação de dados
+    # Verificações de comprimento e formatação de dados
+    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
+    ano_nasc = ano_nasc.year
+    hoje_ano = datetime.date.today().year
+    cpf1 = str(cpf)
+    tel1 = str(tel)
+    cref = str(cref)
+
+    if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
+        return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+    if nome:
+        if len(nome) > 895:
+            return jsonify({"message": "Nome grande demais, o limite é 895 caracteres", "error": True}), 401
+    if cpf:
+        if len(cpf1) != 11:
+            return jsonify({"message": "O CPF precisa ter 11 dígitos", "error": True}), 401
+    if tel:
+        if len(tel1) != 13:
+            return jsonify({"message": """O telefone precisa ser enviado
+                 em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
+    if '@' not in email:
+        return jsonify({"message": "E-mail inválido", "error": True}), 401
+    if his_med:
+        if len(his_med) > 1000:
+            return jsonify({"message": "Limite de caracteres de histórico médico excedido (1000)", "error": True}), 401
+    if desc_med:
+        if len(desc_med) > 1000:
+            return jsonify(
+                {"message": "Limite de caracteres de descrição de medicamentos excedido (1000)", "error": True}), 401
+    if desc_lim:
+        if len(desc_lim) > 1000:
+            return jsonify(
+                {"message": "Limite de caracteres de descrição de limitações excedido (1000)", "error": True}), 401
+    if desc_tr:
+        if len(desc_tr) > 1000:
+            return jsonify({"message": "Limite de caracteres de descrição de treinamentos anteriores excedido (1000)",
+                            "error": True}), 401
+    if desc_obj:
+        if len(desc_obj) > 1000:
+            return jsonify(
+                {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
+    if cref:
+        if len(cref) > 6:
+            return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
+    if form:
+        if len(form) > 1000:
+            return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
+
+    # Verificações de senha
+
+    if len(senha1) < 8:
+        return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
+            uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
+
+    tem_maiuscula = False
+    tem_minuscula = False
+    tem_numero = False
+    tem_caract_especial = False
+    caracteres_especiais = "!@#$%^&*(),-.?\":{}|<>"
+
+    # Verifica cada caractere da senha
+    for char in senha1:
+        if char.isupper():
+            tem_maiuscula = True
+        elif char.islower():
+            tem_minuscula = True
+        elif char.isdigit():
+            tem_numero = True
+        elif char in caracteres_especiais:
+            tem_caract_especial = True
+
+    # Verifica se todos os critérios foram atendidos
+    if not tem_maiuscula:
+        return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
+            uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
+    if not tem_minuscula:
+        return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
+            uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
+    if not tem_numero:
+        return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
+            uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
+    if not tem_caract_especial:
+        return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres,
+            uma letra maiúscula e minúscula e um símbolo de seu teclado.""", "error": True}), 401
+
+    cur = con.cursor()
+    try:
+        # Verificações de duplicatas
+        cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ? AND ID_USUARIO <> ?", (cpf1, id_usuario,))
+        resposta = cur.fetchone()
+        if resposta:
+            if resposta[0] == cpf1:
+                return jsonify({"message": "CPF já cadastrado", "error": True}), 401
+
+        cur.execute("SELECT EMAIL FROM USUARIOS WHERE EMAIL = ? AND ID_USUARIO <> ?", (email, id_usuario,))
+        resposta = cur.fetchone()
+        if resposta:
+            if resposta[0] == email:
+                return jsonify({"message": "Email já cadastrado", "error": True}), 401
+
+        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ? AND ID_USUARIO <> ?", (tel1, id_usuario,))
+        resposta = cur.fetchone()
+        if resposta:
+            if resposta[0] == tel1:
+                return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
+
+        cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?", (cref, id_usuario,))
+        resposta = cur.fetchone()
+        if resposta:
+            if resposta[0] == cref:
+                return jsonify({"message": "Registro de CREF já cadastrado", "error": True}), 401
+
+        # Pegando valores padrões
+        cur.execute("""SELECT NOME, SENHA, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
+        DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, DESCRICAO_TREINAMENTOS_ANTERIORES, 
+        FORMACAO, REGISTRO_CREF FROM USUARIOS WHERE ID_USUARIO = ?""",(id_usuario, ))
+        resposta = cur.fetchone()
+        if resposta:
+            # Trocando os valores não recebidos pelos existentes no banco
+            nome = resposta[0] if not nome else nome
+            senha_hash = resposta[1]
+            cpf1 = str(resposta[2]) if not cpf else cpf1
+            email = resposta[3] if not email else email
+            tel = resposta[4] if not tel else tel
+            data_nasc = resposta[5] if not data_nasc else data_nasc
+            his_med = resposta[6] if not his_med else his_med
+            desc_med = resposta[7] if not desc_med else desc_med
+            desc_lim = resposta[8] if not desc_lim else desc_lim
+            desc_obj = resposta[9] if not desc_obj else desc_obj
+            desc_tr = resposta[10] if not desc_tr else desc_tr
+            form = resposta[11] if not form else form
+            cref = resposta[12] if not cref else cref
+
+        if senha1:
+            senha_hash = generate_password_hash(senha1).decode('utf-8')
+
+        cur.execute("""UPDATE USUARIOS SET NOME = ?, SENHA = ?, CPF = ?, EMAIL = ?, TELEFONE = ?, 
+        DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
+        DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
+        REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf, email, tel, data_nasc, his_med, desc_med, desc_lim,
+                               desc_obj, desc_tr, form, cref, id_usuario,))
+
+        con.commit()
+
+        return jsonify({"message": "Usuário editado com sucesso!", "error": "False"}), 200
+
+    except Exception:
+        print("Erro em /usuarios/editar")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 global_contagem_erros = {}
@@ -611,14 +721,11 @@ def logar():
 
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
-                token = generate_token(id_user)
                 # Excluir as tentativas que deram errado
                 id_user_str = f"usuario-{id_user}"
                 if id_user_str in global_contagem_erros:
                     del global_contagem_erros[id_user_str]
 
-                # Enviar o token
-                token = remover_bearer(token)
                 return jsonify({"message": "Login realizado com sucesso!",
                                 "token": token,
                                 "nome": nome,
