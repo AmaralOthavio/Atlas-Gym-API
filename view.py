@@ -17,6 +17,7 @@ def agendar_exclusao_token(token, horas):
     scheduler.add_job(func=excluir_token_expirado, args=(token,), trigger='date', next_run_time=horario_excluir)
     scheduler.start()
 
+
 def excluir_token_expirado(token):
     cur = con.cursor()
     try:
@@ -200,7 +201,6 @@ def cadastrar_cliente():
         # Verificações a partir do banco de dados
         # Verificações de duplicatas
         resposta = cur.fetchone()
-        print(f"Resposta: {resposta}")
         if resposta:
             if resposta[0] == cpf1:
                 return jsonify({"message": "CPF já cadastrado"}), 401
