@@ -247,7 +247,7 @@ def cadastrar_cliente():
 
 @app.route("/usuarios/cadastrar/personal", methods=["POST"])
 def cadastrar_personal_trainer():
-    verificacao = informar_verificacao(2)
+    verificacao = informar_verificacao(3)
     if verificacao:
         return verificacao
 
@@ -676,13 +676,26 @@ def editar_perfil():
             pass
 
 
-# @app.route("/usuarios/info/admin", methods=["GET"])
-# def trazer_informacoes_para_editar_por_administrador():
+# @app.route("/usuarios/info/admin/<int:pagina>", methods=["GET"])
+# def trazer_informacoes_para_editar_por_administrador(pagina):
+#     # Lista todos os usuários e suas informações
 #     verificacao = informar_verificacao(3)
 #     if verificacao:
 #         return verificacao
 #
-#     cur.execute("SELECT NOME, ATIVO")
+#     cur = con.cursor()
+#     try:
+#         inicial = pagina * 12 - 11 if pagina == 1 else pagina * 12 - 11
+#         final = pagina * 12
+#         cur.execute(f"SELECT * FROM USUARIOS ROWS {inicial} TO {final}")
+#         usuarios = cur.fetchall()
+#         # [inicial - 1:final]
+#         return jsonify(usuarios), 200
+#     except Exception:
+#         print("Erro em /usuarios/info/admin/<int:pagina>")
+#         raise
+#     finally:
+#         cur.close()
 
 
 @app.route("/usuarios/<int:id_usuario>/editar/admin", methods=["PUT"])
