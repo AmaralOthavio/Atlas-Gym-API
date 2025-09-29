@@ -280,14 +280,6 @@ def logar():
 
                 token = remover_bearer(token)
 
-                return jsonify({
-                    "message": "Login realizado com sucesso!",
-                    "token": token,
-                    "nome": nome,
-                    "tipo": tipo,
-                    "email": email
-                })
-
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
                 token = generate_token(id_user)
@@ -298,7 +290,11 @@ def logar():
 
                 # Enviar o token
                 token = remover_bearer(token)
-                return jsonify({"message": "Login realizado com sucesso!", "token": f"{token}"})
+                return jsonify({"message": "Login realizado com sucesso!",
+                "token": token,
+                "nome": nome,
+                "tipo": tipo,
+                "email": email})
             else:
                 # Ignorar isso tudo se o usuário for administrador ou personal trainer
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
