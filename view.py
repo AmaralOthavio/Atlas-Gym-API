@@ -268,6 +268,25 @@ def logar():
                 ), 401
 
             if check_password_hash(senha_hash, senha):
+                tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
+                tipo = tipo.fetchone()[0]
+
+                nome = cur.execute("SELECT NOME FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
+                nome = nome.fetchone()[0]
+
+                token = generate_token(id_user)
+
+                # limpar global_contagem_erros e etc...
+
+                token = remover_bearer(token)
+
+                return jsonify({
+                    "message": "Login realizado com sucesso!",
+                    "token": token,
+                    "nome": nome,
+                    "tipo": tipo,
+                    "email": email
+                })
 
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
