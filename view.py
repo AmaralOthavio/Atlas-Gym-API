@@ -255,6 +255,8 @@ def logar():
         resultado = cur.fetchone()
 
         if resultado:
+            print("\n\nResultado encontrado")
+            print(resultado)
             senha_hash = resultado[0]
             id_user = resultado[1]
             ativo = cur.execute("SELECT ATIVO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
@@ -268,6 +270,7 @@ def logar():
                 ), 401
 
             if check_password_hash(senha_hash, senha):
+                print("\n\nSenha certa!")
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
 
@@ -316,7 +319,7 @@ def logar():
                             global_contagem_erros[id_user_str] = 1
                             # Em teoria é para ser impossível a execução chegar aqui
 
-                    return jsonify({"message": "Credenciais inválidas."}), 401
+                return jsonify({"message": "Credenciais inválidas."}), 401
         else:
             return jsonify({"message": "Usuário não encontrado."}), 404
     except Exception:
