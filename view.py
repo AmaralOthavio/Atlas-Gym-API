@@ -1,29 +1,26 @@
 from main import app, con
 from flask_bcrypt import generate_password_hash, check_password_hash
-from flask_jwt_extended import (
-    JWTManager, create_access_token, get_jwt_identity, get_jwt,
-    verify_jwt_in_request, decode_token
-)
+import jwt
+import config
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 from flask import jsonify, request
 
-# Configurar JWTManager — assegure que main.py define app.config['JWT_SECRET_KEY']
-jwt = JWTManager(app)
-
-
 # Funções globais
-def agendar_exclusao_token(jti, horas):
+# Funções de token
+senha_secreta = app.config['SECRET_KEY']
+
+
+def agendar_exclusao_token(token, horas):
     scheduler = BackgroundScheduler()
     horario_excluir = datetime.datetime.now() + datetime.timedelta(hours=horas)
-    scheduler.add_job(func=excluir_token_expirado, args=(jti,), trigger='date', next_run_time=horario_excluir)
+    scheduler.add_job(func=excluir_token_expirado, args=(token,), trigger='date', next_run_time=horario_excluir)
     scheduler.start()
 
-
-def excluir_token_expirado(jti):
+def excluir_token_expirado(token):
     cur = con.cursor()
     try:
-        cur.execute("DELETE FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (jti,))
+        cur.execute("DELETE FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token,))
         con.commit()
     except Exception:
         print("Erro em excluir_token_expirado")
@@ -34,37 +31,22 @@ def excluir_token_expirado(jti):
         except Exception:
             pass
 
+
 def generate_token(user_id):
-    expires = datetime.timedelta(hours=3)
-    access_token = create_access_token(identity=user_id, expires_delta=expires)
-    return access_token
+    payload = {
+        "id_usuario": user_id,
+        'exp': datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=3)
+    }
+    token = jwt.encode(payload, senha_secreta, algorithm='HS256')
+    return token
+
 
 def remover_bearer(token):
-    if token and token.startswith("Bearer "):
+    if token.startswith("Bearer "):
         return token[len("Bearer "):]
     else:
         return token
 
-def is_token_revoked(jti):
-    cur = con.cursor()
-    try:
-        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (jti,))
-        return cur.fetchone() is not None
-    except Exception:
-        print("Erro em is_token_revoked")
-        raise
-    finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
-
-@jwt.token_in_blocklist_loader
-def check_if_token_revoked(jwt_header, jwt_payload):
-    jti = jwt_payload.get("jti")
-    if not jti:
-        return True
-    return is_token_revoked(jti)
 
 def verificar_user(tipo, trazer_pl):
     cur = con.cursor()
@@ -74,22 +56,14 @@ def verificar_user(tipo, trazer_pl):
             return 1  # Token de autenticação necessário
 
         token = remover_bearer(token)
-
         try:
-            # verifica token se presente; optional=True evita abort automático quando não houver token
-            verify_jwt_in_request(optional=True)
-            payload_identity = get_jwt_identity()
-            jwt_payload = get_jwt()
-        except Exception as e:
-            msg = str(e).lower()
-            if 'expired' in msg or 'expired' in repr(e).lower():
-                return 2  # Token expirado
+            payload = jwt.decode(token, senha_secreta, algorithms=['HS256'])
+        except jwt.ExpiredSignatureError:
+            return 2  # Token expirado
+        except jwt.InvalidTokenError:
             return 3  # Token inválido
 
-        if not payload_identity:
-            return 3
-
-        id_logado = payload_identity
+        id_logado = payload["id_usuario"]
 
         if tipo == 2:
             cur.execute("SELECT 1 FROM USUARIOS WHERE ID_USUARIO = ? AND (TIPO = 2 OR TIPO = 3)", (id_logado,))
@@ -104,16 +78,14 @@ def verificar_user(tipo, trazer_pl):
                 return 5  # Nível Administrador requerido
 
         if trazer_pl:
-            return {"id_usuario": id_logado, **jwt_payload}
-        return None
+            return payload
+        pass
     except Exception:
         print("Erro em verificar_user")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
+
 
 def informar_verificacao(tipo=0, trazer_pl=False):
     verificacao = verificar_user(tipo, trazer_pl)
@@ -186,6 +158,7 @@ def cadastrar_cliente():
         return jsonify({"message": "Limite de caracteres de descrição de objetivos excedido (1000)"}), 401
 
     # Verificações de senha
+
     if len(senha1) < 8:
         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres, 
         uma letra maiúscula e minúscula e um símbolo de seu teclado."""}), 401
@@ -196,6 +169,7 @@ def cadastrar_cliente():
     tem_caract_especial = False
     caracteres_especiais = "!@#$%^&*(),-.?\":{}|<>"
 
+    # Verifica cada caractere da senha
     for char in senha1:
         if char.isupper():
             tem_maiuscula = True
@@ -206,6 +180,7 @@ def cadastrar_cliente():
         elif char in caracteres_especiais:
             tem_caract_especial = True
 
+    # Verifica se todos os critérios foram atendidos
     if not tem_maiuscula:
         return jsonify({"message": """Sua senha deve conter pelo menos oito caracteres, 
         uma letra maiúscula e minúscula e um símbolo de seu teclado."""}), 401
@@ -222,6 +197,8 @@ def cadastrar_cliente():
     cur = con.cursor()
     try:
         cur.execute("SELECT CPF FROM USUARIOS WHERE CPF = ?", (cpf1,))
+        # Verificações a partir do banco de dados
+        # Verificações de duplicatas
         resposta = cur.fetchone()
         print(f"Resposta: {resposta}")
         if resposta:
@@ -273,6 +250,7 @@ def logar():
 
     cur = con.cursor()
     try:
+        # Checando se a senha está correta
         cur.execute("SELECT senha, id_usuario FROM usuarios WHERE email = ?", (email,))
         resultado = cur.fetchone()
 
@@ -290,27 +268,20 @@ def logar():
                 ), 401
 
             if check_password_hash(senha_hash, senha):
+
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
-
-                access_token = generate_token(id_user)
-
-                # Extrair jti para agendar exclusão
-                try:
-                    decoded = decode_token(access_token)
-                    jti = decoded.get("jti")
-                    if jti:
-                        agendar_exclusao_token(jti, 3)
-                except Exception:
-                    # se falhar, não impede o login
-                    jti = None
-
+                token = generate_token(id_user)
+                # Excluir as tentativas que deram errado
                 id_user_str = f"usuario-{id_user}"
                 if id_user_str in global_contagem_erros:
                     del global_contagem_erros[id_user_str]
 
-                return jsonify({"message": "Login realizado com sucesso!", "token": f"{access_token}"})
+                # Enviar o token
+                token = remover_bearer(token)
+                return jsonify({"message": "Login realizado com sucesso!", "token": f"{token}"})
             else:
+                # Ignorar isso tudo se o usuário for administrador ou personal trainer
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
 
@@ -328,6 +299,7 @@ def logar():
                             return jsonify({"message": "Tentativas excedidas, usuário inativado."}), 401
                         elif global_contagem_erros[id_user_str] > 3:
                             global_contagem_erros[id_user_str] = 1
+                            # Em teoria é para ser impossível a execução chegar aqui
 
                     return jsonify({"message": "Credenciais inválidas."}), 401
         else:
@@ -335,6 +307,7 @@ def logar():
     except Exception:
         print("Erro em logar")
         raise
+
     finally:
         try:
             cur.close()
@@ -344,31 +317,28 @@ def logar():
 
 @app.route('/logout', methods=["GET"])
 def logout():
-    token = request.headers.get('Authorization')
-    if not token:
+    verificacao = informar_verificacao()
+    if verificacao:
         return jsonify({"message": "Você já saiu de sua conta"}), 401
-    token = remover_bearer(token)
 
-    try:
-        decoded = decode_token(token)
-        jti = decoded.get("jti")
-    except Exception:
-        return jsonify({"message": "Token inválido."}), 401
+    token = request.headers.get('Authorization')
+    token = remover_bearer(token)
 
     cur = con.cursor()
     try:
-        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (jti,))
+        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token, ))
         if cur.fetchone():
             return jsonify({"message": "Logout já feito com esse token"}), 401
 
-        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) VALUES (?)", (jti,))
+        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) VALUES (?)", (token, ))
         con.commit()
 
-        agendar_exclusao_token(jti, 3)
+        agendar_exclusao_token(token, 3)
 
         return jsonify({"message": "Logout bem-sucedido!"}), 200
 
     except Exception as e:
         return jsonify({"message": "Erro interno de servidor", "error": f"{e}"}), 500
+
     finally:
         cur.close()
