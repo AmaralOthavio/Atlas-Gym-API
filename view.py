@@ -511,7 +511,7 @@ def editar_perfil():
     form = data.get("formacao")
     cref = data.get("cref")
 
-    try:
+    # try:
 
 
 global_contagem_erros = {}
