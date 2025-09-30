@@ -114,6 +114,24 @@ def informar_verificacao(tipo=0, trazer_pl=False):
         return None
 
 
+def formatar_telefone(tel):
+    # 5518123451234
+    # +55 (18) 12345-1234
+    tel = str(tel)
+    tel = ''.join(filter(str.isdigit, tel))  # Remove caracteres não numéricos
+    if len(tel) == 11:
+        ddd = tel[:2]
+        primeira_parte = tel[2:7]
+        segunda_parte = tel[7:]
+        return f"({ddd}) {primeira_parte}-{segunda_parte}"
+    elif len(tel) == 13:
+        pais = tel[:2]
+        ddd = tel[2:4]
+        primeira_parte = tel[4:9]
+        segunda_parte = tel[9:]
+        return f"+{pais} ({ddd}) {primeira_parte}-{segunda_parte}"
+
+
 @app.route('/verificartoken/<int:tipo>', methods=["GET"])
 def verificar_token(tipo):
     verificacao = informar_verificacao(tipo)
@@ -246,7 +264,7 @@ def cadastrar_cliente():
         cur.execute("""INSERT INTO USUARIOS (NOME, senha, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, 
         HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, TIPO, DESCRICAO_OBJETIVOS,
         DESCRICAO_TREINAMENTOS_ANTERIORES) VALUES (?,?,?,?,?,?,?,?,?,1,?,?)""",
-                    (nome, senha2, cpf1, email, tel1, data_nasc,
+                    (nome, senha2, cpf1, email, formatar_telefone(tel1), data_nasc,
                      his_med, desc_med,
                      desc_lim, desc_obj, desc_tr))
         con.commit()
@@ -305,8 +323,8 @@ def cadastrar_personal_trainer():
         return jsonify({"message": "E-mail inválido", "error": True}), 401
     if len(form) > 1000:
         return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
-    if len(cref) > 6:
-        return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
+    if len(cref) > 9:
+        return jsonify({"message": "Limite de caracteres de registro CREF excedido (9)", "error": True}), 401
 
     # Verificações de senha
 
@@ -378,7 +396,7 @@ def cadastrar_personal_trainer():
         cur.execute(
             """INSERT INTO USUARIOS (NOME, DATA_NASCIMENTO, senha, CPF, EMAIL, TELEFONE, FORMACAO, REGISTRO_CREF, TIPO)
                VALUES (?,?,?,?,?,?,?,?,2)""",
-            (nome, data_nasc, senha2, cpf1, email, tel1, form, cref)
+            (nome, data_nasc, senha2, cpf1, email, formatar_telefone(tel1), form, cref)
         )
         con.commit()
         return jsonify({"message": "Personal Trainer cadastrado com sucesso!", "error": False}), 200
@@ -496,7 +514,7 @@ def cadastrar_administrador():
         cur.execute(
             """INSERT INTO USUARIOS (NOME, DATA_NASCIMENTO, senha, CPF, EMAIL, TELEFONE, TIPO)
                VALUES (?,?,?,?,?,?,3)""",
-            (nome, data_nasc, senha2, cpf1, email, tel1,)
+            (nome, data_nasc, senha2, cpf1, email, formatar_telefone(tel1),)
         )
         con.commit()
         return jsonify({"message": "Administrador cadastrado com sucesso!", "error": False}), 200
@@ -675,8 +693,9 @@ def editar_perfil():
         cur.execute("""UPDATE USUARIOS SET NOME = ?, SENHA = ?, CPF = ?, EMAIL = ?, TELEFONE = ?, 
         DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
         DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
-        REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf, email, tel, data_nasc, his_med, desc_med, desc_lim,
-                               desc_obj, desc_tr, form, str(cref), id_usuario,))
+        REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf, email, formatar_telefone(tel), data_nasc,
+                                                    his_med, desc_med,
+                                                    desc_lim, desc_obj, desc_tr, form, str(cref), id_usuario,))
 
         con.commit()
 
@@ -692,26 +711,123 @@ def editar_perfil():
             pass
 
 
-# @app.route("/usuarios/info/admin/<int:pagina>", methods=["GET"])
-# def trazer_informacoes_para_editar_por_administrador(pagina):
-#     # Lista todos os usuários e suas informações
-#     verificacao = informar_verificacao(3)
-#     if verificacao:
-#         return verificacao
-#
-#     cur = con.cursor()
-#     try:
-#         inicial = pagina * 12 - 11 if pagina == 1 else pagina * 12 - 11
-#         final = pagina * 12
-#         cur.execute(f"SELECT * FROM USUARIOS ROWS {inicial} TO {final}")
-#         usuarios = cur.fetchall()
-#         # [inicial - 1:final]
-#         return jsonify(usuarios), 200
-#     except Exception:
-#         print("Erro em /usuarios/info/admin/<int:pagina>")
-#         raise
-#     finally:
-#         cur.close()
+@app.route("/usuarios/admin/<int:pagina>/<int:tipo>", methods=["GET"])
+def listar_usuarios_por_administrador(pagina=1, tipo=1):
+    # Lista todos os usuários e suas informações
+    verificacao = informar_verificacao(3)
+    if verificacao:
+        return verificacao
+
+    tipo = 3 if tipo > 3 else tipo
+    cur = con.cursor()
+    try:
+        inicial = pagina * 8 - 7 if pagina == 1 else pagina * 8 - 7
+        final = pagina * 8
+        if tipo == 1:
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
+            WHERE TIPO = 1 ROWS {inicial} TO {final}""")
+        elif tipo == 2:
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
+            WHERE TIPO = 2 ROWS {inicial} TO {final}""")
+        elif tipo == 3:
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, TELEFONE, ATIVO FROM USUARIOS 
+                        WHERE TIPO = 3 ROWS {inicial} TO {final}""")
+        else:
+            return jsonify({"message": "Tipo inválido, precisa ser 1, 2 ou 3", "error": True}), 400
+        usuarios = cur.fetchall()
+        # [inicial - 1:final]
+        return jsonify({"usuarios": usuarios, "error": False}), 200
+    except Exception:
+        print("Erro em /usuarios/admin/<int:pagina>/<int:tipo>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/usuarios/personal/<int:pagina>/<int:tipo>", methods=["GET"])
+def listar_usuarios_por_personal_trainer(pagina=1, tipo=1):
+    # Lista todos os usuários e suas informações, exceto administradores
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    tipo = 2 if tipo > 2 else tipo
+    cur = con.cursor()
+    try:
+        inicial = pagina * 8 - 7 if pagina == 1 else pagina * 8 - 7
+        final = pagina * 8
+        if tipo == 1:
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
+            WHERE TIPO = 1 ROWS {inicial} TO {final}""")
+        elif tipo == 2:
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
+            WHERE TIPO = 2 ROWS {inicial} TO {final}""")
+        else:
+            return jsonify({"message": "Tipo inválido, precisa ser 1 ou 2", "error": True}), 400
+        usuarios = cur.fetchall()
+        # [inicial - 1:final]
+        return jsonify({"usuarios": usuarios, "error": False}), 200
+    except Exception:
+        print("Erro em /usuarios/admin/<int:pagina>/<int:tipo>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/usuarios/info/<int:id_usuario>/admin", methods=["GET"])
+def trazer_campos_editar(id_usuario):
+    verificacao = informar_verificacao(3)
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?",(id_usuario, ))
+        resposta = cur.fetchone()
+        subtitulos = []
+        if resposta:
+            tipo = resposta[0]
+            if tipo == 1:
+                cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, 
+                 HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
+                 DESCRICAO_TREINAMENTOS_ANTERIORES  
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario, ))
+                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento",
+                              "Histórico Médico Relevante", "Descrição de medicamentos", "Descrição de limitações",
+                              "Descrição de Objetivos", "Experiência Anterior com Academia"]
+            elif tipo == 2:
+                cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO,
+                 FORMACAO, REGISTRO_CREF 
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
+                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento", "Formação",
+                              "Registro CREF"]
+            elif tipo == 3:
+                cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO 
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
+                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento"]
+            else:
+                return jsonify({"message": "Erro ao recuperar tipo de usuário", "error": True}), 500
+        else:
+            return jsonify({"message": "Usuário não encontrado", "error": True}), 404
+
+        dados = cur.fetchone()
+        dados_json = dict(zip(subtitulos, dados))
+
+        return jsonify({"dados": dados_json, "error": False}), 200
+    except Exception:
+        print("Erro em /usuarios/info/<int:id_usuario>/admin")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 @app.route("/usuarios/<int:id_usuario>/editar/admin", methods=["PUT"])
@@ -780,8 +896,8 @@ def editar_usuario_por_administrador(id_usuario):
             return jsonify(
                 {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
     if cref:
-        if len(cref) > 6:
-            return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
+        if len(cref) > 9:
+            return jsonify({"message": "Limite de caracteres de registro CREF excedido (9)", "error": True}), 401
     if form:
         if len(form) > 1000:
             return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
@@ -879,7 +995,7 @@ def editar_usuario_por_administrador(id_usuario):
             DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
             DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
             REGISTRO_CREF = ? WHERE ID_USUARIO = ?""",
-                    (nome, senha_hash, cpf1, email, tel1, data_nasc, his_med, desc_med, desc_lim,
+                    (nome, senha_hash, cpf1, email, formatar_telefone(tel1), data_nasc, his_med, desc_med, desc_lim,
                      desc_obj, desc_tr, form, cref, id_usuario,))
 
         con.commit()
@@ -962,8 +1078,8 @@ def editar_usuario_por_personal_trainer(id_usuario):
             return jsonify(
                 {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
     if cref:
-        if len(cref) > 6:
-            return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
+        if len(cref) > 9:
+            return jsonify({"message": "Limite de caracteres de registro CREF excedido (9)", "error": True}), 401
     if form:
         if len(form) > 1000:
             return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
@@ -1068,7 +1184,7 @@ def editar_usuario_por_personal_trainer(id_usuario):
             DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
             DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
             REGISTRO_CREF = ? WHERE ID_USUARIO = ?""",
-                    (nome, senha_hash, cpf1, email, tel1, data_nasc, his_med, desc_med, desc_lim,
+                    (nome, senha_hash, cpf1, email, formatar_telefone(tel1), data_nasc, his_med, desc_med, desc_lim,
                      desc_obj, desc_tr, form, cref, id_usuario,))
 
         con.commit()
@@ -1146,7 +1262,7 @@ def logar():
                 tipo = cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_user,))
                 tipo = tipo.fetchone()[0]
 
-                if tipo != 3 and tipo != 2:
+                if tipo != 3:
                     id_user_str = f"usuario-{id_user}"
                     if id_user_str not in global_contagem_erros:
                         global_contagem_erros[id_user_str] = 1
