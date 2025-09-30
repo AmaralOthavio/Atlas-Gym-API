@@ -175,6 +175,7 @@ def cadastrar_cliente():
 
     # Verificações de comprimento e formatação de dados
     ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
+    data_nasc = ano_nasc
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
@@ -307,6 +308,7 @@ def cadastrar_personal_trainer():
 
     # Verificações de comprimento e formatação de dados
     ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
+    data_nasc = ano_nasc
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
@@ -435,6 +437,7 @@ def cadastrar_administrador():
 
     # Verificações de comprimento e formatação de dados
     ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
+    data_nasc = ano_nasc
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
 
