@@ -57,6 +57,9 @@ def verificar_user(tipo, trazer_pl):
             return 1  # Token de autenticação necessário
 
         token = remover_bearer(token)
+        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token,))
+        if cur.fetchone():
+            return 6  # Acesso negado
         try:
             payload = jwt.decode(token, senha_secreta, algorithms=['HS256'])
         except jwt.ExpiredSignatureError:
@@ -85,7 +88,10 @@ def verificar_user(tipo, trazer_pl):
         print("Erro em verificar_user")
         raise
     finally:
-        cur.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 def informar_verificacao(tipo=0, trazer_pl=False):
@@ -100,10 +106,21 @@ def informar_verificacao(tipo=0, trazer_pl=False):
         return jsonify({'message': 'Nível Personal Trainer requerido.', "verificacao": verificacao, "error": True}), 401
     elif verificacao == 5:
         return jsonify({'message': 'Nível Administrador requerido.', "verificacao": verificacao, "error": True}), 401
+    elif verificacao == 6:
+        return jsonify({'message': 'Acesso negado.', "verificacao": verificacao, "error": True}), 401
     else:
         if trazer_pl:
             return verificacao
         return None
+
+
+@app.route('/verificartoken/<int:tipo>', methods=["GET"])
+def verificar_token(tipo):
+    verificacao = informar_verificacao(tipo)
+    if verificacao:
+        return verificacao
+    else:
+        return jsonify({"error": False})
 
 
 @app.route('/usuarios/cadastrar', methods=["POST"])
@@ -526,7 +543,6 @@ def editar_perfil():
     hoje_ano = datetime.date.today().year
     cpf1 = str(cpf)
     tel1 = str(tel)
-    cref = str(cref)
 
     if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
         return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
@@ -562,7 +578,7 @@ def editar_perfil():
             return jsonify(
                 {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
     if cref:
-        if len(cref) > 6:
+        if len(str(cref)) > 6:
             return jsonify({"message": "Limite de caracteres de registro CREF excedido (6)", "error": True}), 401
     if form:
         if len(form) > 1000:
@@ -629,13 +645,13 @@ def editar_perfil():
         cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?", (cref, id_usuario,))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] == cref:
+            if resposta[0] == str(cref):
                 return jsonify({"message": "Registro de CREF já cadastrado", "error": True}), 401
 
         # Pegando valores padrões
         cur.execute("""SELECT NOME, SENHA, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
         DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, DESCRICAO_TREINAMENTOS_ANTERIORES, 
-        FORMACAO, REGISTRO_CREF FROM USUARIOS WHERE ID_USUARIO = ?""",(id_usuario, ))
+        FORMACAO, REGISTRO_CREF FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario, ))
         resposta = cur.fetchone()
         if resposta:
             # Trocando os valores não recebidos pelos existentes no banco
@@ -660,7 +676,7 @@ def editar_perfil():
         DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
         DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
         REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf, email, tel, data_nasc, his_med, desc_med, desc_lim,
-                               desc_obj, desc_tr, form, cref, id_usuario,))
+                               desc_obj, desc_tr, form, str(cref), id_usuario,))
 
         con.commit()
 
@@ -1160,30 +1176,30 @@ def logar():
             pass
 
 
-# @app.route('/logout', methods=["GET"])
-# def logout():
-#     verificacao = informar_verificacao()
-#     if verificacao:
-#         return jsonify({"message": "Você já saiu de sua conta", "error": True}), 401
-#
-#     token = request.headers.get('Authorization')
-#     token = remover_bearer(token)
-#
-#     cur = con.cursor()
-#     try:
-#         cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token,))
-#         if cur.fetchone():
-#             return jsonify({"message": "Logout já feito com esse token", "error": True}), 401
-#
-#         cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) VALUES (?)", (token,))
-#         con.commit()
-#
-#         agendar_exclusao_token(token, 3)
-#
-#         return jsonify({"message": "Logout bem-sucedido!", "error": False}), 200
-#
-#     except Exception as e:
-#         return jsonify({"message": "Erro interno de servidor", "error1": f"{e}"}), 500
-#
-#     finally:
-#         cur.close()
+@app.route('/logout', methods=["GET"])
+def logout():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return jsonify({"message": "Você já saiu de sua conta", "error": True}), 401
+
+    token = request.headers.get('Authorization')
+    token = remover_bearer(token)
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT 1 FROM BLACKLIST_TOKENS WHERE TOKEN = ?", (token,))
+        if cur.fetchone():
+            return jsonify({"message": "Logout já feito com esse token", "error": True}), 401
+
+        cur.execute("INSERT INTO BLACKLIST_TOKENS (TOKEN) VALUES (?)", (token,))
+        con.commit()
+
+        agendar_exclusao_token(token, 3)
+
+        return jsonify({"message": "Logout bem-sucedido!", "error": False}), 200
+
+    except Exception as e:
+        return jsonify({"message": "Erro interno de servidor", "error1": f"{e}"}), 500
+
+    finally:
+        cur.close()
