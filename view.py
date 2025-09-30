@@ -116,7 +116,7 @@ def cadastrar_cliente():
     email = email.lower()
     tel = data.get('telefone')
     data_nasc = data.get('data_nascimento')
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
     desc_obj = data.get('descricao_objetivos')
 
     his_med = data.get('historico_medico_relevante')
@@ -261,7 +261,7 @@ def cadastrar_personal_trainer():
     form = data.get('formacao')
     cref = data.get('cref')
     data_nasc = data.get('data_nascimento')
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
 
     if not all(
             [nome, data_nasc, senha1, cpf, email, tel, form, cref]):
@@ -390,7 +390,7 @@ def cadastrar_administrador():
     email = email.lower()
     tel = data.get('telefone')
     data_nasc = data.get('data_nascimento')
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
 
     if not all(
             [nome, data_nasc, senha1, cpf, email, tel]):
@@ -510,7 +510,7 @@ def editar_perfil():
     email = email.lower()
     tel = data.get("telefone")
     data_nasc = data.get("data_nascimento")
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
     his_med = data.get("historico_medico_relevante")
     desc_med = data.get("descricao_medicamentos")
     desc_lim = data.get("descricao_limitacoes")
@@ -712,7 +712,7 @@ def editar_usuario_por_administrador(id_usuario):
     email = email.lower()
     tel = data.get("telefone")
     data_nasc = data.get("data_nascimento")
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
     his_med = data.get("historico_medico_relevante")
     desc_med = data.get("descricao_medicamentos")
     desc_lim = data.get("descricao_limitacoes")
@@ -894,7 +894,7 @@ def editar_usuario_por_personal_trainer(id_usuario):
     email = email.lower()
     tel = data.get("telefone")
     data_nasc = data.get("data_nascimento")
-    data_nasc.replace("/", "-")
+    data_nasc = data_nasc.replace("/", "-")
     his_med = data.get("historico_medico_relevante")
     desc_med = data.get("descricao_medicamentos")
     desc_lim = data.get("descricao_limitacoes")
