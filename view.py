@@ -1427,8 +1427,8 @@ def colocar_novo_exercicio_no_plano(id_plano):
     if verificacao:
         return verificacao
     data = request.get_json()
-    exercicios = data.get('exerciciosSelecionados', [])
-    series = data.get('qtd_series')
+    exercicio = data.get('id_exercicio')
+    series = data.get('series')
     dia = data.get("dia")  # segunda-feira, terça-feira, etc.
 
     try:
@@ -1441,10 +1441,18 @@ def colocar_novo_exercicio_no_plano(id_plano):
     try:
         # Verificar se o plano existe
         cur.execute("SELECT 1 FROM PLANOS WHERE ID_PLANO = ?", (id_plano, ))
+        if not cur.fetchone():
+            return jsonify({"message": "Plano não encontrado", "error": True}), 404
 
-        for exercicio in exercicios:
-            cur.execute("""INSERT INTO DIA_DA_SEMANA_EXERCICIOS(ID_PLANO, ID_EXERCICIO, DIA_DA_SEMANA) 
-            VALUES(?,?,?)""", (id_plano, exercicio, dia, ))
+        # Verificar se o exercício existe
+        cur.execute("SELECT 1 FROM EXERCICIOS WHERE ID_EXERCICIO = ?", (exercicio, ))
+        if not cur.fetchone():
+            return jsonify({"message": "Exercício que foi tentado adicionar não encontrado", "error": True}), 404
+
+        cur.execute("""INSERT INTO DIA_DA_SEMANA_EXERCICIOS_PLANO(ID_PLANO, ID_EXERCICIO, DIA_DA_SEMANA) 
+        VALUES(?,?,?)""", (id_plano, exercicio, dia, ))
+        con.commit()
+        return jsonify({"message": "Exercício adicionado ao plano com sucesso!", "error:": False}), 200
 
     except Exception:
         print("Erro em /planos/adicionar-exercicio/<int:id_plano>")
@@ -1454,6 +1462,9 @@ def colocar_novo_exercicio_no_plano(id_plano):
             cur.close()
         except Exception:
             pass
+
+# A fazer:
+# Editar e excluir (desassociar) exercício do plano
 
 
 @app.route("/exercicios", methods=["GET"])
