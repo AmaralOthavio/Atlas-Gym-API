@@ -733,13 +733,13 @@ def listar_usuarios_por_administrador(pagina=1, tipo=1):
         final = pagina * 8
         if tipo == 1:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 1 ROWS {inicial} TO {final}""")
+            WHERE TIPO = 1 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
         elif tipo == 2:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 2 ROWS {inicial} TO {final}""")
+            WHERE TIPO = 2 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
         elif tipo == 3:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, TELEFONE, ATIVO FROM USUARIOS 
-                        WHERE TIPO = 3 ROWS {inicial} TO {final}""")
+                        WHERE TIPO = 3 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
         else:
             return jsonify({"message": "Tipo inválido, precisa ser 1, 2 ou 3", "error": True}), 400
         usuarios = cur.fetchall()
@@ -769,10 +769,10 @@ def listar_usuarios_por_personal_trainer(pagina=1, tipo=1):
         final = pagina * 8
         if tipo == 1:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 1 ROWS {inicial} TO {final}""")
+            WHERE TIPO = 1 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
         elif tipo == 2:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 2 ROWS {inicial} TO {final}""")
+            WHERE TIPO = 2 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
         else:
             return jsonify({"message": "Tipo inválido, precisa ser 1 ou 2", "error": True}), 400
         usuarios = cur.fetchall()
@@ -789,7 +789,7 @@ def listar_usuarios_por_personal_trainer(pagina=1, tipo=1):
 
 
 @app.route("/usuarios/info/<int:id_usuario>/admin", methods=["GET"])
-def trazer_campos_editar(id_usuario):
+def trazer_campos_editar_admin(id_usuario):
     verificacao = informar_verificacao(3)
     if verificacao:
         return verificacao
@@ -830,6 +830,52 @@ def trazer_campos_editar(id_usuario):
         return jsonify({"dados": dados_json, "error": False}), 200
     except Exception:
         print("Erro em /usuarios/info/<int:id_usuario>/admin")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/usuarios/info/<int:id_usuario>/personal", methods=["GET"])
+def trazer_campos_editar_personal(id_usuario):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario,))
+        resposta = cur.fetchone()
+        subtitulos = []
+        if resposta:
+            tipo = resposta[0]
+            if tipo == 1:
+                cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, 
+                 HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
+                 DESCRICAO_TREINAMENTOS_ANTERIORES  
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
+                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento",
+                              "Histórico Médico Relevante", "Descrição de medicamentos", "Descrição de limitações",
+                              "Descrição de Objetivos", "Experiência Anterior com Academia"]
+            elif tipo == 2:
+                cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO,
+                 FORMACAO, REGISTRO_CREF 
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
+                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento", "Formação",
+                              "Registro CREF"]
+            else:
+                return jsonify({"message": "Erro ao recuperar tipo de usuário", "error": True}), 500
+        else:
+            return jsonify({"message": "Usuário não encontrado", "error": True}), 404
+
+        dados = cur.fetchone()
+        dados_json = dict(zip(subtitulos, dados))
+
+        return jsonify({"dados": dados_json, "error": False}), 200
+    except Exception:
+        print("Erro em /usuarios/info/<int:id_usuario>/personal")
         raise
     finally:
         try:
@@ -1375,8 +1421,93 @@ def criar_plano(id_usuario):
             pass
 
 
-@app.route("/exercicios/criar/<int:id_plano>", methods=["POST"])
-def criar_exercicio(id_plano):
+@app.route("/planos/adicionar-exercicio/<int:id_plano>", methods=["POST"])
+def colocar_novo_exercicio_no_plano(id_plano):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+    data = request.get_json()
+    exercicios = data.get('exerciciosSelecionados', [])
+    series = data.get('qtd_series')
+    dia = data.get("dia")  # segunda-feira, terça-feira, etc.
+
+    try:
+        series = int(series)
+    except (TypeError, ValueError):
+        return jsonify({"message": "A quantidade de séries precisa ser em número inteiro",
+                        "error": True}), 400
+
+    cur = con.cursor()
+    try:
+        # Verificar se o plano existe
+        cur.execute("SELECT 1 FROM PLANOS WHERE ID_PLANO = ?", (id_plano, ))
+
+        for exercicio in exercicios:
+            cur.execute("""INSERT INTO DIA_DA_SEMANA_EXERCICIOS(ID_PLANO, ID_EXERCICIO, DIA_DA_SEMANA) 
+            VALUES(?,?,?)""", (id_plano, exercicio, dia, ))
+
+    except Exception:
+        print("Erro em /planos/adicionar-exercicio/<int:id_plano>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/exercicios", methods=["GET"])
+def ver_biblioteca_de_exercicios():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT ID_EXERCICIO, NOME, DESCRICAO, NIVEL_DIFICULDADE, VIDEO FROM EXERCICIOS")
+        exercicios = cur.fetchall()
+        subtitulos = ["ID_EXERCICIO", "NOME_EXERCICIO", "DESCRICAO", "DIFICULDADE", "VIDEO"]
+
+        dados_json = [dict(zip(subtitulos, registro)) for registro in exercicios]
+        return jsonify({"exercicios": dados_json, "error": False})
+    except Exception:
+        print("erro em /exercícios")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/exercicios2", methods=["GET"])
+def ver_nomes_e_ids_de_exercicios():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT ID_EXERCICIO, NOME FROM EXERCICIOS")
+        exercicios = cur.fetchall()
+        subtitulos = ["ID_EXERCICIO", "NOME_EXERCICIO"]
+
+        dados_json = [dict(zip(subtitulos, registro)) for registro in exercicios]
+        return jsonify({"exercicios": dados_json, "error": False})
+    except Exception:
+        print("erro em /exercícios")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/exercicios/criar/", methods=["POST"])
+def criar_exercicio():
+    # Responsável por criar exercícios, não por associar exercícios a um plano
+
     # Verificar se é pelo menos personal
     verificacao = informar_verificacao(2)
     if verificacao:
@@ -1384,7 +1515,7 @@ def criar_exercicio(id_plano):
 
     data = request.get_json()
     nome = data.get('nome')
-    grupos_musculares = data.get('gruposMuscularesSelecionados', []).split(',')
+    grupos_musculares = data.get('gruposMuscularesSelecionados', [])
     descricao = data.get('descricao')
     nivel_dificuldade = data.get('dificuldade')
     video = data.get('video')
@@ -1395,10 +1526,115 @@ def criar_exercicio(id_plano):
     # Verificações de formatação e comprimento de dados
     if len(nome) > 255:
         return jsonify({"message": "Comprimento de nome excedido (255)", "error": True})
-    if len(video) > 255:
-        return jsonify({"message": "Comprimento de vídeo excedido (255)", "error": True})
+    if video:
+        if len(video) > 255:
+            return jsonify({"message": "Comprimento de vídeo excedido (255)", "error": True})
     if len(descricao) > 1000:
         return jsonify({"message": "Comprimento de descrição excedido (1000)", "error": True})
+    try:
+        nivel_dificuldade = int(nivel_dificuldade)
+    except (TypeError, ValueError):
+        return jsonify({"message": "nivel_dificuldade precisa ser um inteiro (1 = fácil, 2 = médio, 3 = difícil)",
+                        "error": True})
+
+    cur = con.cursor()
+    try:
+        cur.execute("""INSERT INTO EXERCICIOS(NOME, DESCRICAO, NIVEL_DIFICULDADE, VIDEO) 
+        VALUES(?,?,?,?) RETURNING ID_EXERCICIO""", (nome, descricao, nivel_dificuldade, video, ))
+
+        id_exercicio = cur.fetchone()
+        if not id_exercicio:
+            return jsonify({"message": "Erro ao recuperar id de exercício", "error": True}), 500
+
+        for grupo in grupos_musculares:
+            cur.execute("INSERT INTO GRUPO_M_EXERCICIO(ID_GRUPO_MUSCULAR, ID_EXERCICIO) "
+                        "VALUES(?,?)", (grupo, id_exercicio[0], ))
+
+        con.commit()
+        return jsonify({"message": "Exercício criado com sucesso!", "error": False}), 200
+
+    except Exception:
+        print("Erro em criar exercício")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route('/exercicios/excluir/<int:id_exercicio>', methods=["DELETE"])
+def excluir_exercicio(id_exercicio):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        # Ver se existe
+        cur.execute("SELECT 1 FROM EXERCICIOS WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        if not cur.fetchone():
+            return jsonify({"message": "Exercício não encontrado", "error": True}), 404
+
+        # Excluir primeiro das outras tabelas que usam ID_EXERCICIO
+        cur.execute("DELETE FROM GRUPO_M_EXERCICIO WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        cur.execute("DELETE FROM DIA_DA_SEMANA_EXERCICIOS_PLANO WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+
+        cur.execute("DELETE FROM EXERCICIOS WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        con.commit()
+        return jsonify({"message": "Exercício excluído com sucesso!", "error": False}), 200
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/exercicios/editar/<int:id_exercicio>", methods=["PUT"])
+def editar_exercicio(id_exercicio):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    data = request.get_json()
+    nome = data.get('nome')
+    descricao = data.get('descricao')
+    video = data.get('video')
+    dificuldade = data.get('dificuldade')
+
+    if dificuldade:
+        try:
+            dificuldade = int(dificuldade)
+        except (TypeError, ValueError):
+            return jsonify({"message": "dificuldade precisa ser um inteiro", "error": True}), 400
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT NOME, DESCRICAO, VIDEO, NIVEL_DIFICULDADE FROM EXERCICIOS "
+                    "WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        dados = cur.fetchone()
+
+        if not dados:
+            return jsonify({"message": "Exercício não encontrado", "error": True}), 404
+
+        # Substituindo dados pelos que já existem no banco de dados caso não foram recebidos
+        nome = dados[0] if not nome else nome
+        descricao = dados[1] if not descricao else descricao
+        video = dados[2] if not video else video
+        dificuldade = dados[3] if not dificuldade else dificuldade
+
+        cur.execute("""UPDATE EXERCICIOS SET NOME = ?, DESCRICAO = ?, VIDEO = ?, NIVEL_DIFICULDADE = ? 
+        WHERE ID_EXERCICIO = ?""", (nome, descricao, video, dificuldade, id_exercicio, ))
+        con.commit()
+        return jsonify({"message": "Exercício editado com sucesso", "error": False}), 200
+    except Exception:
+        print("Erro em /exercicios/editar/<int:id_exercicio>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
 @app.route('/grupos_musculares', methods=['GET'])
@@ -1436,12 +1672,3 @@ def trazer_grupos_musculares():
     #
     # tags = cur.fetchall()
     # selected_tags = [{'id': tag[0], 'nome': tag[1]} for tag in tags]
-
-# @app.route("/planos/criar/<int:id_usuario>", methods=["POST"])
-# def criar_plano(id_usuario):
-#     # Verificar se é pelo menos personal
-#     verificacao = informar_verificacao(2)
-#     if verificacao:
-#         return verificacao
-#
-#     data = request.get_json()
