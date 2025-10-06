@@ -193,13 +193,17 @@ def cadastrar_cliente():
     if len(his_med) > 1000:
         return jsonify({"message": "Limite de caracteres de histórico médico excedido (1000)", "error": True}), 401
     if len(desc_med) > 1000:
-        return jsonify({"message": "Limite de caracteres de descrição de medicamentos excedido (1000)", "error": True}), 401
+        return jsonify(
+            {"message": "Limite de caracteres de descrição de medicamentos excedido (1000)", "error": True}), 401
     if len(desc_lim) > 1000:
-        return jsonify({"message": "Limite de caracteres de descrição de limitações excedido (1000)", "error": True}), 401
+        return jsonify(
+            {"message": "Limite de caracteres de descrição de limitações excedido (1000)", "error": True}), 401
     if len(desc_tr) > 1000:
-        return jsonify({"message": "Limite de caracteres de descrição de treinamentos anteriores excedido (1000)", "error": True}), 401
+        return jsonify({"message": "Limite de caracteres de descrição de treinamentos anteriores excedido (1000)",
+                        "error": True}), 401
     if len(desc_obj) > 1000:
-        return jsonify({"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
+        return jsonify(
+            {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
 
     # Verificações de senha
 
@@ -663,7 +667,8 @@ def editar_perfil():
             if resposta[0] == tel1:
                 return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
 
-        cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?", (cref, id_usuario,))
+        cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?",
+                    (cref, id_usuario,))
         resposta = cur.fetchone()
         if resposta:
             if resposta[0] == str(cref):
@@ -672,7 +677,7 @@ def editar_perfil():
         # Pegando valores padrões
         cur.execute("""SELECT NOME, SENHA, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
         DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, DESCRICAO_TREINAMENTOS_ANTERIORES, 
-        FORMACAO, REGISTRO_CREF FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario, ))
+        FORMACAO, REGISTRO_CREF FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
         resposta = cur.fetchone()
         if resposta:
             # Trocando os valores não recebidos pelos existentes no banco
@@ -696,7 +701,7 @@ def editar_perfil():
         cur.execute("""UPDATE USUARIOS SET NOME = ?, SENHA = ?, CPF = ?, EMAIL = ?, TELEFONE = ?, 
         DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
         DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
-        REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf, email, formatar_telefone(tel), data_nasc,
+        REGISTRO_CREF = ? WHERE ID_USUARIO = ?""", (nome, senha_hash, cpf1, email, formatar_telefone(tel), data_nasc,
                                                     his_med, desc_med,
                                                     desc_lim, desc_obj, desc_tr, form, str(cref), id_usuario,))
 
@@ -791,7 +796,7 @@ def trazer_campos_editar(id_usuario):
 
     cur = con.cursor()
     try:
-        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?",(id_usuario, ))
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario,))
         resposta = cur.fetchone()
         subtitulos = []
         if resposta:
@@ -800,7 +805,7 @@ def trazer_campos_editar(id_usuario):
                 cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, 
                  HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
                  DESCRICAO_TREINAMENTOS_ANTERIORES  
-                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario, ))
+                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
                 subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento",
                               "Histórico Médico Relevante", "Descrição de medicamentos", "Descrição de limitações",
                               "Descrição de Objetivos", "Experiência Anterior com Academia"]
@@ -1127,7 +1132,7 @@ def editar_usuario_por_personal_trainer(id_usuario):
     cur = con.cursor()
     try:
         # Verificar se o personal pode editar esse usuário
-        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario, ))
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario,))
         resposta = cur.fetchone()
         if resposta:
             if resposta[0] > 1:
@@ -1322,3 +1327,121 @@ def logout():
 
     finally:
         cur.close()
+
+
+@app.route("/planos/criar/<int:id_usuario>", methods=["POST"])
+def criar_plano(id_usuario):
+    # Cria um plano vazio para depois associar exercícios
+
+    # Pelo menos personal
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    id_personal = informar_verificacao(trazer_pl=True)
+    id_personal = id_personal["id_usuario"]
+
+    data = request.get_json()
+    horas_dia = data.get("horas_dia")  # horas por dia
+    objetivo = data.get("objetivo_plano")
+
+    try:
+        horas_dia = int(horas_dia)
+    except (TypeError, ValueError):
+        return jsonify({"message": "horas_dia precisa ser um inteiro", "error": True})
+    if len(objetivo) > 1000:
+        return jsonify({"message": "Limite de caracteres de objetivo de plano excedido (1000)", "error": True})
+
+    cur = con.cursor()
+    try:
+        # Verificar tentativa de criar um plano para alguém que não é cliente
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario, ))
+        tipo_usuario = cur.fetchone()
+        if tipo_usuario[0] > 1:
+            return jsonify({"message": "Esse usuário não pode ter planos", "error": True}), 401
+
+        cur.execute("""INSERT INTO PLANOS(ID_USUARIO_ALUNO, ID_USUARIO_PERSONAL, HORAS_DIA, OBJETIVO_PLANO) 
+        VALUES(?,?,?,?)""", (id_usuario, id_personal, horas_dia, objetivo))
+        con.commit()
+        return({"message": "Plano criado com sucesso!", "error": False}), 200
+
+    except Exception:
+        print("Erro em /planos/criar/<int:id_usuario>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route("/exercicios/criar/<int:id_plano>", methods=["POST"])
+def criar_exercicio(id_plano):
+    # Verificar se é pelo menos personal
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    data = request.get_json()
+    nome = data.get('nome')
+    grupos_musculares = data.get('gruposMuscularesSelecionados', []).split(',')
+    descricao = data.get('descricao')
+    nivel_dificuldade = data.get('dificuldade')
+    video = data.get('video')
+
+    if not all([nome, grupos_musculares, descricao, nivel_dificuldade]):
+        return jsonify({"message": "Todos os campos são obrigatórios, exceto vídeo", "error": True})
+
+    # Verificações de formatação e comprimento de dados
+    if len(nome) > 255:
+        return jsonify({"message": "Comprimento de nome excedido (255)", "error": True})
+    if len(video) > 255:
+        return jsonify({"message": "Comprimento de vídeo excedido (255)", "error": True})
+    if len(descricao) > 1000:
+        return jsonify({"message": "Comprimento de descrição excedido (1000)", "error": True})
+
+
+@app.route('/grupos_musculares', methods=['GET'])
+def trazer_grupos_musculares():
+    # Verificar se é pelo menos aluno
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT * FROM GRUPOS_MUSCULARES")
+        grupos_musculares = cur.fetchall()
+        subtitulos = ["ID_GRUPO_MUSCULAR", "NOME_MUSCULOS", "CAMINHO_IMAGEM", "FONTE_IMAGEM"]
+
+        dados_json = [dict(zip(subtitulos, registro)) for registro in grupos_musculares]
+        return jsonify({"grupos_musculares": dados_json, "error": False})
+    except Exception:
+        print("Erro em /grupos_musculares")
+        raise
+
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+    # exercicios = data.get('exerciciosSelecionados', []).split(',')
+
+    # cur.execute("""
+    #             SELECT t.id_tag, t.nome_tag
+    #             FROM LIVRO_TAGS lt
+    #             LEFT JOIN TAGS t ON lt.ID_TAG = t.ID_TAG
+    #             WHERE lt.ID_LIVRO = ?
+    #         """, (id,))
+    #
+    # tags = cur.fetchall()
+    # selected_tags = [{'id': tag[0], 'nome': tag[1]} for tag in tags]
+
+# @app.route("/planos/criar/<int:id_usuario>", methods=["POST"])
+# def criar_plano(id_usuario):
+#     # Verificar se é pelo menos personal
+#     verificacao = informar_verificacao(2)
+#     if verificacao:
+#         return verificacao
+#
+#     data = request.get_json()
