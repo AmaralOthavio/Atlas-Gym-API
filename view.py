@@ -733,13 +733,13 @@ def listar_usuarios_por_administrador(pagina=1, tipo=1):
         final = pagina * 8
         if tipo == 1:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 1 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
+            WHERE TIPO = 1 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         elif tipo == 2:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 2 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
+            WHERE TIPO = 2 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         elif tipo == 3:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, TELEFONE, ATIVO FROM USUARIOS 
-                        WHERE TIPO = 3 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
+                        WHERE TIPO = 3 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         else:
             return jsonify({"message": "Tipo inválido, precisa ser 1, 2 ou 3", "error": True}), 400
         usuarios = cur.fetchall()
@@ -768,11 +768,14 @@ def listar_usuarios_por_personal_trainer(pagina=1, tipo=1):
         inicial = pagina * 8 - 7 if pagina == 1 else pagina * 8 - 7
         final = pagina * 8
         if tipo == 1:
-            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 1 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
+            cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, CPF, TELEFONE, ATIVO
+            FROM USUARIOS
+            WHERE TIPO = 1
+            ORDER BY ID_USUARIO DESC
+            ROWS {inicial} TO {final}""")
         elif tipo == 2:
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, REGISTRO_CREF, TELEFONE, ATIVO FROM USUARIOS 
-            WHERE TIPO = 2 ROWS {inicial} TO {final} ORDER BY ID_USUARIO DESC""")
+            WHERE TIPO = 2 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         else:
             return jsonify({"message": "Tipo inválido, precisa ser 1 ou 2", "error": True}), 400
         usuarios = cur.fetchall()
@@ -1433,9 +1436,13 @@ def colocar_novo_exercicio_no_plano(id_plano):
 
     try:
         series = int(series)
+        exercicio = int(exercicio)
     except (TypeError, ValueError):
-        return jsonify({"message": "A quantidade de séries precisa ser em número inteiro",
+        return jsonify({"message": "A quantidade de séries e o id_exercicio precisam ser em números inteiros",
                         "error": True}), 400
+
+    if series < 1:
+        series = 1
 
     cur = con.cursor()
     try:
@@ -1450,7 +1457,17 @@ def colocar_novo_exercicio_no_plano(id_plano):
             return jsonify({"message": "Exercício que foi tentado adicionar não encontrado", "error": True}), 404
 
         cur.execute("""INSERT INTO DIA_DA_SEMANA_EXERCICIOS_PLANO(ID_PLANO, ID_EXERCICIO, DIA_DA_SEMANA) 
-        VALUES(?,?,?)""", (id_plano, exercicio, dia, ))
+        VALUES(?,?,?) RETURNING ID_DIA_EXERCICIO""", (id_plano, exercicio, dia, ))
+
+        id_dia_exercicio = cur.fetchone()[0]
+
+        print(f"ID_DIA_EXERCICIO = {id_dia_exercicio}")
+        # Criar os registros das séries
+        x = 0
+        while x < series:
+            cur.execute("INSERT INTO SERIES_EXERCICIO_DIA(ID_DIA_EXERCICIO) VALUES(?)", (id_dia_exercicio,))
+            x += 1  # adiciona até x == series
+
         con.commit()
         return jsonify({"message": "Exercício adicionado ao plano com sucesso!", "error:": False}), 200
 
@@ -1463,10 +1480,164 @@ def colocar_novo_exercicio_no_plano(id_plano):
         except Exception:
             pass
 
-# A fazer:
-# Editar e excluir (desassociar) exercício do plano
+
+@app.route('/planos/editar/<int:id_plano>', methods=["PUT"])
+def editar_plano(id_plano):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    data = request.get_json()
+    horas_dia = data.get('horas_dia')
+    objetivo = data.get('objetivo_plano')
+
+    try:
+        horas_dia = int(horas_dia)
+    except (TypeError, ValueError):
+        return jsonify({"message": "horas_dia precisa ser um inteiro", "error": True})
+    if len(objetivo) > 1000:
+        return jsonify({"message": "Limite de caracteres de objetivo de plano excedido (1000)", "error": True})
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT HORAS_DIA, OBJETIVO_PLANO FROM PLANOS WHERE ID_PLANO = ?", (id_plano,))
+        dados = cur.fetchone()
+
+        if not dados:
+            return jsonify({"message": "Plano não encontrado", "error": True}), 404
+
+        # Substituindo dados pelos que já existem no banco de dados caso não foram recebidos
+        horas_dia = dados[0] if not horas_dia else horas_dia
+        objetivo = dados[1] if not objetivo else objetivo
+
+        cur.execute("""UPDATE PLANOS SET HORAS_DIA = ?, OBJETIVO_PLANO = ?""", (horas_dia, objetivo,))
+        con.commit()
+        return jsonify({"message": "Plano editado com sucesso", "error": False}), 200
+    except Exception:
+        print("Erro em /planos/editar/<int:id_plano>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 
+@app.route('/planos/excluir/<int:id_plano>', methods=["DELETE"])
+def excluir_plano(id_plano):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT 1 FROM PLANOS WHERE ID_PLANO = ?", (id_plano,))
+        if not cur.fetchone():
+            return jsonify({"message": "Plano não encontrado", "error": True}), 404
+
+        # Excluindo primeiro das tabelas que usam a chave primária do plano como chave estrangeira
+        cur.execute("""DELETE FROM SERIES_EXERCICIO_DIA 
+        WHERE ID_DIA_EXERCICIO IN
+         (SELECT ID_DIA_EXERCICIO FROM DIA_DA_SEMANA_EXERCICIOS_PLANO WHERE ID_PLANO = ?)""",(id_plano, ))
+        cur.execute("DELETE FROM DIA_DA_SEMANA_EXERCICIOS_PLANO WHERE ID_PLANO = ?", (id_plano, ))
+
+        cur.execute("DELETE FROM PLANOS WHERE ID_PLANO = ?", (id_plano, ))
+
+        return jsonify({"message": "Plano excluído com sucesso!", "error": False})
+
+    except Exception:
+        print("Erro ao excluir plano")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+# Visualiza todos os exercícios do plano do usuário e os dias de cada um
+@app.route('/planos/<int:id_usuario>', methods=["GET"])
+def visualizar_plano_de_aluno(id_usuario):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+
+    cur = con.cursor()
+    try:
+        # Ver se existe
+        cur.execute("SELECT 1 FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario, ))
+        if not cur.fetchone():
+            return jsonify({"message": "Esse usuário não existe", "error": True}), 404
+
+        cur.execute("SELECT ID_PLANO FROM PLANOS WHERE ID_USUARIO_ALUNO = ?", (id_usuario,))
+        ids_planos = cur.fetchall()  # ex: [(1,), (2,), ...]
+
+        planos = {}
+        for (id_plano,) in ids_planos:  # descompacta tuple para int
+            cur.execute("""
+                SELECT e.ID_EXERCICIO, e.NOME, e.DESCRICAO, e.NIVEL_DIFICULDADE, e.VIDEO, D.DIA_DA_SEMANA
+                FROM EXERCICIOS e
+                LEFT JOIN DIA_DA_SEMANA_EXERCICIOS_PLANO D ON D.ID_EXERCICIO = e.ID_EXERCICIO
+                WHERE D.ID_PLANO = ?
+                ORDER BY D.DIA_DA_SEMANA ASC
+            """, (id_plano,))
+            plano = cur.fetchall()  # lista de tuplas (exercícios)
+            planos[id_plano] = plano
+
+        return jsonify({"planos": planos, "error": False})
+
+    except Exception:
+        print("Erro em visualizar_plano_de_aluno")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+@app.route('/planos/retirar-exercicio/<int:id_plano>', methods=["DELETE"])
+def retirar_exercicio_do_plano(id_plano):
+    verificacao = informar_verificacao(2)
+    if verificacao:
+        return verificacao
+    data = request.get_json()
+    exercicio = data.get('id_exercicio')
+
+    try:
+        exercicio = int(exercicio)
+    except (TypeError, ValueError):
+        return jsonify({"message": "O exercício precisa ser em número inteiro",
+                        "error": True}), 400
+
+    cur = con.cursor()
+    try:
+        # Verificar se o plano existe
+        cur.execute("SELECT 1 FROM PLANOS WHERE ID_PLANO = ?", (id_plano,))
+        if not cur.fetchone():
+            return jsonify({"message": "Plano não encontrado", "error": True}), 404
+
+        # Verificar se o exercício existe
+        cur.execute("SELECT 1 FROM EXERCICIOS WHERE ID_EXERCICIO = ?", (exercicio,))
+        if not cur.fetchone():
+            return jsonify({"message": "Exercício que foi tentado retirar não encontrado", "error": True}), 404
+
+        cur.execute("""DELETE FROM DIA_DA_SEMANA_EXERCICIOS_PLANO 
+        WHERE ID_EXERCICIO = ? AND ID_PLANO = ?""", (exercicio, id_plano,))
+        con.commit()
+        return jsonify({"message": "Exercício adicionado ao plano com sucesso!", "error:": False}), 200
+
+    except Exception:
+        print("Erro em /planos/adicionar-exercicio/<int:id_plano>")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
+# Traz todos os dados de todos os exercícios
 @app.route("/exercicios", methods=["GET"])
 def ver_biblioteca_de_exercicios():
     verificacao = informar_verificacao()
@@ -1491,6 +1662,7 @@ def ver_biblioteca_de_exercicios():
             pass
 
 
+# Traz apenas os nomes e IDs de todos os exercícios
 @app.route("/exercicios2", methods=["GET"])
 def ver_nomes_e_ids_de_exercicios():
     verificacao = informar_verificacao()
