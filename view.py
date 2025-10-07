@@ -719,6 +719,46 @@ def editar_perfil():
             pass
 
 
+# Entrega os campos de dados já existentes para o usuário se editar
+@app.route('/usuarios/info', methods=["GET"])
+def trazer_campos_editar_normal():
+    verificacao = informar_verificacao()
+    if verificacao:
+        return verificacao
+
+    id_logado = informar_verificacao(trazer_pl=True)
+    id_logado = id_logado["id_usuario"]
+
+    cur = con.cursor()
+    try:
+        cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_logado, ))
+
+        tipo = cur.fetchone()
+        if tipo:
+            if tipo[0] == 1:
+                cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
+                                DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
+                                DESCRICAO_TREINAMENTOS_ANTERIORES FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
+            elif tipo[0] == 2:
+                cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO, REGISTRO_CREF, FORMACAO
+                                FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
+            elif tipo[0] == 3:
+                cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO
+                                FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
+            info = cur.fetchone()
+
+            return jsonify({"info": info, "error": False}), 200
+
+    except Exception:
+        print("Erro em /usuarios/info")
+        raise
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
+
+
 @app.route("/usuarios/admin/<int:pagina>/<int:tipo>", methods=["GET"])
 def listar_usuarios_por_administrador(pagina=1, tipo=1):
     # Lista todos os usuários e suas informações
