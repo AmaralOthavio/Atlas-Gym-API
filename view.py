@@ -1129,17 +1129,13 @@ def editar_usuario_por_personal_trainer(id_usuario):
     desc_lim = data.get("descricao_limitacoes")
     desc_obj = data.get("descricao_objetivos")
     desc_tr = data.get("descricao_treinamentos_anteriores")
-    form = data.get("formacao")
-    cref = data.get("cref")
 
-    # Verificações de comprimento e formatação de dados
     # Verificações de comprimento e formatação de dados
     ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
     ano_nasc = ano_nasc.year
     hoje_ano = datetime.date.today().year
     cpf1 = str(cpf)
     tel1 = str(tel)
-    cref = str(cref)
 
     if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
         return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
@@ -1174,12 +1170,6 @@ def editar_usuario_por_personal_trainer(id_usuario):
         if len(desc_obj) > 1000:
             return jsonify(
                 {"message": "Limite de caracteres de descrição de objetivos excedido (1000)", "error": True}), 401
-    if cref:
-        if len(cref) > 9:
-            return jsonify({"message": "Limite de caracteres de registro CREF excedido (9)", "error": True}), 401
-    if form:
-        if len(form) > 1000:
-            return jsonify({"message": "Limite de caracteres de formação excedido (1000)", "error": True}), 401
 
     # Verificações de senha
 
@@ -1224,7 +1214,8 @@ def editar_usuario_por_personal_trainer(id_usuario):
         cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario,))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] > 1:
+            tipo = resposta[0]
+            if tipo > 1:
                 return jsonify({"message": "Você não possui permissão para editar esse usuário", "error": True}), 401
 
         # Verificações de duplicatas
@@ -1246,13 +1237,6 @@ def editar_usuario_por_personal_trainer(id_usuario):
             if resposta[0] == tel1:
                 return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
 
-        cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?",
-                    (cref, id_usuario,))
-        resposta = cur.fetchone()
-        if resposta:
-            if resposta[0] == cref:
-                return jsonify({"message": "Registro de CREF já cadastrado", "error": True}), 401
-
         # Pegando valores padrões
         cur.execute("""SELECT NOME, SENHA, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
             DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, DESCRICAO_TREINAMENTOS_ANTERIORES, 
@@ -1271,25 +1255,23 @@ def editar_usuario_por_personal_trainer(id_usuario):
             desc_lim = resposta[8] if not desc_lim else desc_lim
             desc_obj = resposta[9] if not desc_obj else desc_obj
             desc_tr = resposta[10] if not desc_tr else desc_tr
-            form = resposta[11] if not form else form
-            cref = resposta[12] if not cref else cref
 
         if senha1:
             senha_hash = generate_password_hash(senha1).decode('utf-8')
 
         cur.execute("""UPDATE USUARIOS SET NOME = ?, SENHA = ?, CPF = ?, EMAIL = ?, TELEFONE = ?, 
             DATA_NASCIMENTO = ?, HISTORICO_MEDICO_RELEVANTE = ?, DESCRICAO_MEDICAMENTOS = ?,
-            DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ?, FORMACAO = ?, 
-            REGISTRO_CREF = ? WHERE ID_USUARIO = ?""",
+            DESCRICAO_LIMITACOES = ?, DESCRICAO_OBJETIVOS = ?, DESCRICAO_TREINAMENTOS_ANTERIORES = ? 
+            WHERE ID_USUARIO = ?""",
                     (nome, senha_hash, cpf1, email, formatar_telefone(tel1), data_nasc, his_med, desc_med, desc_lim,
-                     desc_obj, desc_tr, form, cref, id_usuario,))
+                     desc_obj, desc_tr, id_usuario,))
 
         con.commit()
 
         return jsonify({"message": "Usuário editado com sucesso!", "error": "False"}), 200
 
     except Exception:
-        print("Erro em /usuarios/<int:id_usuario>/editar/admin")
+        print("Erro em /usuarios/<int:id_usuario>/editar/personal")
         raise
     finally:
         try:
