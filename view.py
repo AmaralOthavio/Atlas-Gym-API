@@ -1824,6 +1824,7 @@ def editar_exercicio(id_exercicio):
     descricao = data.get('descricao')
     video = data.get('video')
     dificuldade = data.get('dificuldade')
+    grupos_musculares = data.get('gruposMuscularesSelecionados', [])
 
     if dificuldade:
         try:
@@ -1839,6 +1840,15 @@ def editar_exercicio(id_exercicio):
 
         if not dados:
             return jsonify({"message": "Exercício não encontrado", "error": True}), 404
+
+        if grupos_musculares:
+            # Excluir todos os registros desse exercício que o relacionam aos seus grupos musculares
+            cur.execute("DELETE FROM GRUPO_M_EXERCICIO WHERE ID_EXERCICIO = ?", (id_exercicio,))
+
+            # Adicionar os novos registros
+            for grupo in grupos_musculares:
+                cur.execute("INSERT INTO GRUPO_M_EXERCICIO(ID_GRUPO_MUSCULAR, ID_EXERCICIO) "
+                            "VALUES(?,?)", (grupo, id_exercicio,))
 
         # Substituindo dados pelos que já existem no banco de dados caso não foram recebidos
         nome = dados[0] if not nome else nome
