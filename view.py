@@ -1702,19 +1702,24 @@ def ver_biblioteca_de_exercicios():
             pass
 
 
-# Traz apenas os nomes e IDs de todos os exercícios
-@app.route("/exercicios2", methods=["GET"])
-def ver_nomes_e_ids_de_exercicios():
+@app.route("/exercicios/detalhes/<int:id_exercicio>", methods=["GET"])  # Se resumir não for 0, trazer apenas nome e IDs
+def ver_exercicios(id_exercicio):
     verificacao = informar_verificacao()
     if verificacao:
         return verificacao
 
     cur = con.cursor()
     try:
-        cur.execute("SELECT ID_EXERCICIO, NOME FROM EXERCICIOS")
-        exercicios = cur.fetchall()
-        subtitulos = ["ID_EXERCICIO", "NOME_EXERCICIO"]
+        # Verificar se existe
+        cur.execute("SELECT 1 FROM EXERCICIOS WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        if not cur.fetchone():
+            return jsonify({"message": "Exercício não encontrado", "error": True}), 404
 
+        cur.execute("""SELECT ID_EXERCICIO, NOME, DESCRICAO, NIVEL_DIFICULDADE, VIDEO FROM EXERCICIOS 
+        WHERE ID_EXERCICIO = ?""", (id_exercicio, ))
+        subtitulos = ["ID_EXERCICIO", "NOME_EXERCICIO", "DESCRICAO", "DIFICULDADE", "VIDEO"]
+
+        exercicios = cur.fetchall()
         dados_json = [dict(zip(subtitulos, registro)) for registro in exercicios]
         return jsonify({"exercicios": dados_json, "error": False})
     except Exception:
