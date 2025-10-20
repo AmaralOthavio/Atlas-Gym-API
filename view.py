@@ -218,13 +218,17 @@ def cadastrar_usuario(tipo=0):
                 return jsonify({"message": """Todos os campos são obrigatórios""", "error": True}), 400
 
     # Verificações de comprimento e formatação de dados
-    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
-    data_nasc = ano_nasc
-    ano_nasc = ano_nasc.year
-    hoje_ano = datetime.date.today().year
+    try:
+        ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+        data_nasc = ano_nasc
+        ano_nasc = ano_nasc.year
+        hoje_ano = datetime.date.today().year
 
-    if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
-        return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+        if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
+            return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+    except Exception:
+        return jsonify({"message":
+                            f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
 
     cpf1 = str(cpf)
     tel1 = str(tel)
@@ -359,15 +363,21 @@ def editar_perfil():
     cref = data.get("cref")
 
     # Verificações de comprimento e formatação de dados
-    # Verificações de comprimento e formatação de dados
-    ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
-    ano_nasc = ano_nasc.year
-    hoje_ano = datetime.date.today().year
+    if data_nasc:
+        try:
+            ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+            data_nasc = ano_nasc
+            ano_nasc = ano_nasc.year
+            hoje_ano = datetime.date.today().year
+
+            if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
+                return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+        except Exception:
+            return jsonify({"message":
+                            f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
     cpf1 = str(cpf)
     tel1 = str(tel)
 
-    if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
-        return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
     if nome:
         if len(nome) > 895:
             return jsonify({"message": "Nome grande demais, o limite é 895 caracteres", "error": True}), 401
@@ -622,22 +632,22 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
                  HISTORICO_MEDICO_RELEVANTE, DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
                  DESCRICAO_TREINAMENTOS_ANTERIORES  
                  FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
-                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento",
-                              "Histórico Médico Relevante", "Descrição de medicamentos", "Descrição de limitações",
-                              "Descrição de Objetivos", "Experiência Anterior com Academia"]
+                subtitulos = ["nome", "ativo", "cpf", "email", "telefone", "data_nascimento",
+                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitações",
+                              "descricao_objetivos", "descricao_treinamentos_anteriores"]
             elif tipo == 2:
                 cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO,
                  FORMACAO, REGISTRO_CREF 
                  FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
-                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento", "Formação",
-                              "Registro CREF"]
+                subtitulos = ["nome", "ativo", "cpf", "email", "telefone", "data_nascimento", "formacao",
+                              "cref"]
             elif tipo == 3:
                 if tipo_logado < 3:
                     return jsonify({"message": "Você não tem permissão de ver os dados desse usuário",
                                     "error": True}), 401
                 cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO 
                  FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
-                subtitulos = ["Nome", "Ativo", "CPF", "E-mail", "Telefone", "Data de Nascimento"]
+                subtitulos = ["nome", "ativo", "cpf", "email", "telefone", "data_nascimento"]
             else:
                 return jsonify({"message": "Erro ao recuperar tipo de usuário", "error": True}), 500
         else:
@@ -648,7 +658,7 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
 
         return jsonify({"dados": dados_json, "error": False}), 200
     except Exception:
-        print("Erro em /usuarios/info/<int:id_usuario>/admin")
+        print("Erro em /usuarios/info/<int:id_usuario>/<int:tipo_logado>")
         raise
     finally:
         try:
@@ -691,11 +701,17 @@ def editar_outro_usuario(id_usuario, tipo_logado):
 
     # Verificações de comprimento e formatação de dados
     if data_nasc:
-        ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
-        ano_nasc = ano_nasc.year
-        hoje_ano = datetime.date.today().year
-        if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
-            return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+        try:
+            ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+            data_nasc = ano_nasc
+            ano_nasc = ano_nasc.year
+            hoje_ano = datetime.date.today().year
+
+            if ano_nasc > hoje_ano or hoje_ano - ano_nasc < 17:
+                return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
+        except Exception:
+            return jsonify({"message":
+                                f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
     cpf1 = str(cpf) if cpf else None
     tel1 = str(tel) if tel else None
     cref = str(cref) if cref else None
@@ -868,7 +884,7 @@ def alternar_ativo_de_usuario(id_usuario):
     cur = con.cursor()
     try:
         # Verificar o id_usuario
-        cur.execute("SELECT TIPO, ATIVO FROM USUARIOS WHERE ID_USUARIO = ?")
+        cur.execute("SELECT TIPO, ATIVO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario, ))
         resultado = cur.fetchone()
         if not resultado:
             return jsonify({"message": "Usuário não encontrado", "error": True}), 404
@@ -897,7 +913,6 @@ def alternar_ativo_de_usuario(id_usuario):
             cur.close()
         except Exception:
             pass
-
 
 
 global_contagem_erros = {}
