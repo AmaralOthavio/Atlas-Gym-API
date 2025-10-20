@@ -5,6 +5,7 @@ import config
 from apscheduler.schedulers.background import BackgroundScheduler
 import datetime
 from flask import jsonify, request
+from email.utils import parsedate_to_datetime
 
 # Funções globais
 # Funções de token
@@ -130,6 +131,15 @@ def formatar_telefone(tel):
         primeira_parte = tel[4:9]
         segunda_parte = tel[9:]
         return f"+{pais} ({ddd}) {primeira_parte}-{segunda_parte}"
+
+
+def formatar_data(date_str: str) -> str:
+    """
+    Converte uma data no formato RFC-2822 (ex.: "Fri, 07 Nov 1997 00:00:00 GMT")
+    para string no formato "%Y-%m-%d". Lança ValueError se não puder parsear.
+    """
+    dt = parsedate_to_datetime(date_str)  # lida com fusos e GMT corretamente
+    return dt.strftime("%Y-%m-%d")
 
 
 @app.route('/verificartoken/<int:tipo>', methods=["GET"])
@@ -567,7 +577,7 @@ def trazer_campos_editar_a_si_mesmo():
 
 
 @app.route("/usuarios/<int:tipo_logado>/<int:pagina>/<int:tipo_listar>", methods=["GET"])
-def listar_usuarios(tipo_logado, pagina=1, tipo_listar=1):
+def listar_usuarios(tipo_logado, pagina=1, tipo_listar=1):  # Se a página for 0, retornar o total de páginas disponíveis
     # Lista todos os usuários e suas informações conforme as permissões de quem está logado
     if tipo_logado > 2:
         verificacao = informar_verificacao(3)
@@ -579,8 +589,20 @@ def listar_usuarios(tipo_logado, pagina=1, tipo_listar=1):
             return verificacao
 
     tipo_listar = 3 if tipo_listar > 3 else tipo_listar
+    tipo_listar = 1 if tipo_listar < 1 else tipo_listar
     cur = con.cursor()
     try:
+        if pagina == 0:
+            cur.execute("SELECT COUNT(ID_USUARIO) FROM USUARIOS WHERE TIPO = ?", (tipo_listar, ))
+            qtd_paginas = cur.fetchone()
+            qtd_paginas = qtd_paginas[0]
+            # print(qtd_paginas, qtd_paginas/8, qtd_paginas % 8 != 0, qtd_paginas // 8 + 1)
+            if qtd_paginas % 8 != 0:  # Se tem resto adiciona um
+                qtd_paginas = (qtd_paginas // 8) + 1
+            else:
+                qtd_paginas = qtd_paginas / 8
+
+            return jsonify({"paginas": int(qtd_paginas)})
         inicial = pagina * 8 - 7 if pagina == 1 else pagina * 8 - 7
         final = pagina * 8
         if tipo_listar == 1:
