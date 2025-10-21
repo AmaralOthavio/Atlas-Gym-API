@@ -230,7 +230,7 @@ def cadastrar_usuario(tipo=0):
 
     # Verificações de comprimento e formatação de dados
     try:
-        ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+        ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
         data_nasc = ano_nasc
         ano_nasc = ano_nasc.year
         hoje_ano = datetime.date.today().year
@@ -239,7 +239,7 @@ def cadastrar_usuario(tipo=0):
             return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
     except Exception:
         return jsonify({"message":
-                            f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
+                            f"""Erro ao transformar data, formato esperado: %d-%m-%Y, formato recebido: {data_nasc}"""}), 400
 
     cpf1 = str(cpf)
     tel1 = str(tel)
@@ -376,7 +376,7 @@ def editar_perfil():
     # Verificações de comprimento e formatação de dados
     if data_nasc:
         try:
-            ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+            ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
             data_nasc = ano_nasc
             ano_nasc = ano_nasc.year
             hoje_ano = datetime.date.today().year
@@ -385,7 +385,7 @@ def editar_perfil():
                 return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
         except Exception:
             return jsonify({"message":
-                            f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
+                            f"""Erro ao transformar data, formato esperado: %d-%m-%Y, formato recebido: {data_nasc}"""}), 400
     cpf1 = str(cpf)
     tel1 = str(tel)
 
@@ -732,7 +732,7 @@ def editar_outro_usuario(id_usuario, tipo_logado):
     # Verificações de comprimento e formatação de dados
     if data_nasc:
         try:
-            ano_nasc = datetime.datetime.strptime(data_nasc, "%Y-%m-%d")  # converte para datetime
+            ano_nasc = datetime.datetime.strptime(data_nasc, "%d-%m-%Y")  # converte para datetime
             data_nasc = ano_nasc
             ano_nasc = ano_nasc.year
             hoje_ano = datetime.date.today().year
@@ -741,7 +741,7 @@ def editar_outro_usuario(id_usuario, tipo_logado):
                 return jsonify({"message": "Data de nasicmento inválida", "error": True}), 401
         except Exception:
             return jsonify({"message":
-                                f"""Erro ao transformar data, formato esperado: %Y-%m-%d, formato recebido: {data_nasc}"""}), 400
+                                f"""Erro ao transformar data, formato esperado: %d-%m-%Y, formato recebido: {data_nasc}"""}), 400
     cpf1 = str(cpf) if cpf else None
     tel1 = str(tel) if tel else None
     cref = str(cref) if cref else None
