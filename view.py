@@ -133,14 +133,9 @@ def formatar_telefone(tel):
         return f"+{pais} ({ddd}) {primeira_parte}-{segunda_parte}"
 
 
-def formatar_data(date_str: str) -> str:
-    """
-    Converte uma data no formato RFC-2822 (ex.: "Fri, 07 Nov 1997 00:00:00 GMT")
-    para string no formato "%Y-%m-%d". Lança ValueError se não puder parsear.
-    """
-    date_str = str(date_str)
-    dt = parsedate_to_datetime(date_str)  # lida com fusos e GMT corretamente
-    return dt.strftime("%Y-%m-%d")
+def formatar_data(date_str):
+    # Converte uma data no formato %Y-%m-%d para %d-%m-%Y
+    return date_str.strftime("%d-%m-%Y")
 
 
 @app.route('/verificartoken/<int:tipo>', methods=["GET"])
@@ -550,6 +545,8 @@ def trazer_campos_editar_a_si_mesmo():
     cur = con.cursor()
     try:
         cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_logado, ))
+        dicionario = {}
+        subtitulos = []
 
         tipo = cur.fetchone()
         if tipo:
@@ -557,15 +554,32 @@ def trazer_campos_editar_a_si_mesmo():
                 cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO, HISTORICO_MEDICO_RELEVANTE, 
                                 DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
                                 DESCRICAO_TREINAMENTOS_ANTERIORES FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
+                subtitulos = ["nome", "email", "telefone", "cpf", "data_nascimento",
+                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitações",
+                              "descricao_objetivos", "descricao_treinamentos_anteriores"]
             elif tipo[0] == 2:
                 cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO, REGISTRO_CREF, FORMACAO
                                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
+                subtitulos = ["nome", "email", "telefone", "cpf", "data_nascimento", "cref", "formacao"]
             elif tipo[0] == 3:
                 cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO
                                 FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
-            info = cur.fetchone()
+                subtitulos = ["nome", "email", "telefone", "cpf", "data_nascimento"]
+            dados = cur.fetchone()
+            x = 0
+            for dado in dados:
+                try:
+                    if subtitulos[x] == "data_nascimento":
+                        data_nasc = formatar_data(dado)
+                        dicionario[subtitulos[x]] = str(data_nasc)
+                    else:
+                        dicionario[subtitulos[x]] = dado
+                except IndexError:
+                    return jsonify({"message": "Erro ao recuperar campos de dado do usuário", "error": True}), 500
+                x += 1
+            # dados_json = dict(zip(subtitulos, dados))
 
-            return jsonify({"info": info, "error": False}), 200
+            return jsonify({"dados": dicionario, "error": False}), 200
 
     except Exception:
         print("Erro em /usuarios/info")
@@ -680,9 +694,13 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
         x = 0
         for dado in dados:
             try:
-                dicionario[subtitulos[x]] = dado
+                if subtitulos[x] == "data_nascimento":
+                    data_nasc = formatar_data(dado)
+                    dicionario[subtitulos[x]] = str(data_nasc)
+                else:
+                    dicionario[subtitulos[x]] = dado
             except IndexError:
-                return jsonify({"message": "Erro ao buscar dados de usuário", "error": True}), 500
+                return jsonify({"message": "Erro ao recuperar campos de dado do usuário", "error": True}), 500
             x += 1
         # dados_json = dict(zip(subtitulos, dados))
 
