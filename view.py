@@ -138,6 +138,7 @@ def formatar_data(date_str: str) -> str:
     Converte uma data no formato RFC-2822 (ex.: "Fri, 07 Nov 1997 00:00:00 GMT")
     para string no formato "%Y-%m-%d". Lança ValueError se não puder parsear.
     """
+    date_str = str(date_str)
     dt = parsedate_to_datetime(date_str)  # lida com fusos e GMT corretamente
     return dt.strftime("%Y-%m-%d")
 
@@ -647,6 +648,7 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
         cur.execute("SELECT TIPO FROM USUARIOS WHERE ID_USUARIO = ?", (id_usuario,))
         resposta = cur.fetchone()
         subtitulos = []
+        dicionario = {}
         if resposta:
             tipo = resposta[0]
             if tipo == 1:
@@ -663,7 +665,6 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
                  FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
                 subtitulos = ["nome", "ativo", "cpf", "email", "telefone", "data_nascimento", "formacao",
                               "cref"]
-            elif tipo == 3:
                 if tipo_logado < 3:
                     return jsonify({"message": "Você não tem permissão de ver os dados desse usuário",
                                     "error": True}), 401
@@ -676,9 +677,16 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
             return jsonify({"message": "Usuário não encontrado", "error": True}), 404
 
         dados = cur.fetchone()
-        dados_json = dict(zip(subtitulos, dados))
+        x = 0
+        for dado in dados:
+            try:
+                dicionario[subtitulos[x]] = dado
+            except IndexError:
+                return jsonify({"message": "Erro ao buscar dados de usuário", "error": True}), 500
+            x += 1
+        # dados_json = dict(zip(subtitulos, dados))
 
-        return jsonify({"dados": dados_json, "error": False}), 200
+        return jsonify({"dados": dicionario, "error": False}), 200
     except Exception:
         print("Erro em /usuarios/info/<int:id_usuario>/<int:tipo_logado>")
         raise
@@ -1361,9 +1369,18 @@ def ver_exercicios(id_exercicio):
         cur.execute("""SELECT ID_EXERCICIO, NOME, DESCRICAO, NIVEL_DIFICULDADE, VIDEO FROM EXERCICIOS 
         WHERE ID_EXERCICIO = ?""", (id_exercicio, ))
         subtitulos = ["ID_EXERCICIO", "NOME_EXERCICIO", "DESCRICAO", "DIFICULDADE", "VIDEO"]
-
         exercicios = cur.fetchall()
+
+        # Pegar os grupos musculares
+        cur.execute("SELECT ID_GRUPO_MUSCULAR FROM GRUPO_M_EXERCICIO WHERE ID_EXERCICIO = ?", (id_exercicio, ))
+        g_musc = cur.fetchall()
+        g_musc2 = []
+        for g_musc0 in g_musc:
+            g_musc2.append(g_musc0[0])
+
         dados_json = [dict(zip(subtitulos, registro)) for registro in exercicios]
+        dados_json[0]["GRUPOS_MUSCULARES"] = g_musc2
+
         return jsonify({"exercicios": dados_json, "error": False})
     except Exception:
         print("erro em /exercícios")
@@ -1386,7 +1403,7 @@ def criar_exercicio():
 
     data = request.get_json()
     nome = data.get('nome')
-    grupos_musculares = data.get('gruposMuscularesSelecionados', [])
+    grupos_musculares = data.get('gruposMuscularesSelecionados', [])  # ["exercicio1", "exercicio2"]
     descricao = data.get('descricao')
     nivel_dificuldade = data.get('dificuldade')
     video = data.get('video')
