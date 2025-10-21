@@ -555,7 +555,7 @@ def trazer_campos_editar_a_si_mesmo():
                                 DESCRICAO_MEDICAMENTOS, DESCRICAO_LIMITACOES, DESCRICAO_OBJETIVOS, 
                                 DESCRICAO_TREINAMENTOS_ANTERIORES FROM USUARIOS WHERE ID_USUARIO = ?""", (id_logado,))
                 subtitulos = ["nome", "email", "telefone", "cpf", "data_nascimento",
-                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitações",
+                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitacoes",
                               "descricao_objetivos", "descricao_treinamentos_anteriores"]
             elif tipo[0] == 2:
                 cur.execute(f"""SELECT NOME, EMAIL, TELEFONE, CPF, DATA_NASCIMENTO, REGISTRO_CREF, FORMACAO
@@ -671,7 +671,7 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
                  DESCRICAO_TREINAMENTOS_ANTERIORES  
                  FROM USUARIOS WHERE ID_USUARIO = ?""", (id_usuario,))
                 subtitulos = ["nome", "ativo", "cpf", "email", "telefone", "data_nascimento",
-                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitações",
+                              "historico_medico_relevante", "descricao_medicamentos", "descricao_limitacoes",
                               "descricao_objetivos", "descricao_treinamentos_anteriores"]
             elif tipo == 2:
                 cur.execute("""SELECT NOME, ATIVO, CPF, EMAIL, TELEFONE, DATA_NASCIMENTO,
