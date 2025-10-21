@@ -302,10 +302,10 @@ def cadastrar_usuario(tipo=0):
             if resposta[0] == email:
                 return jsonify({"message": "Email já cadastrado", "error": True}), 401
 
-        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ?", (tel1,))
+        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ?", (formatar_telefone(tel1),))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] == tel1:
+            if resposta[0] == formatar_telefone(tel1):
                 return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
 
         senha2 = generate_password_hash(senha1).decode('utf-8')
@@ -474,10 +474,10 @@ def editar_perfil():
             if resposta[0] == email:
                 return jsonify({"message": "Email já cadastrado", "error": True}), 401
 
-        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ? AND ID_USUARIO <> ?", (tel1, id_usuario,))
+        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ? AND ID_USUARIO <> ?", (formatar_telefone(tel1), id_usuario,))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] == tel1:
+            if resposta[0] == formatar_telefone(tel1):
                 return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
 
         cur.execute("SELECT REGISTRO_CREF FROM USUARIOS WHERE REGISTRO_CREF = ? AND ID_USUARIO <> ?",
@@ -855,10 +855,10 @@ def editar_outro_usuario(id_usuario, tipo_logado):
             if resposta[0] == email:
                 return jsonify({"message": "Email já cadastrado", "error": True}), 401
 
-        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ? AND ID_USUARIO <> ?", (tel1, id_usuario,))
+        cur.execute("SELECT TELEFONE FROM USUARIOS WHERE TELEFONE = ? AND ID_USUARIO <> ?", (formatar_telefone(tel1), id_usuario,))
         resposta = cur.fetchone()
         if resposta:
-            if resposta[0] == tel1:
+            if resposta[0] == formatar_telefone(tel1):
                 return jsonify({"message": "Telefone já cadastrado", "error": True}), 401
 
         if cref:
