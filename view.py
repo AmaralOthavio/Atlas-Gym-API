@@ -28,10 +28,7 @@ def excluir_token_expirado(token):
         print("Erro em excluir_token_expirado")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 def generate_token(user_id):
@@ -89,10 +86,7 @@ def verificar_user(tipo, trazer_pl):
         print("Erro em verificar_user")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 def informar_verificacao(tipo=0, trazer_pl=False):
@@ -244,8 +238,7 @@ def cadastrar_usuario(tipo=0):
     if len(cpf1) != 11:
         return jsonify({"message": "O CPF precisa ter 11 dígitos", "error": True}), 401
     if len(tel1) != 13:
-        return jsonify({"message": """O telefone precisa ser enviado
-                 em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
+        return jsonify({"message": """O telefone precisa ser enviado em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
     if '@' not in email:
         return jsonify({"message": "E-mail inválido", "error": True}), 401
 
@@ -336,10 +329,7 @@ def cadastrar_usuario(tipo=0):
         print("Erro em /usuarios/cadastrar/<int:tipo>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 # Para editar a si mesmo
@@ -392,8 +382,7 @@ def editar_perfil():
             return jsonify({"message": "O CPF precisa ter 11 dígitos", "error": True}), 401
     if tel:
         if len(tel1) != 13:
-            return jsonify({"message": """O telefone precisa ser enviado
-                 em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
+            return jsonify({"message": """O telefone precisa ser enviado em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
     if '@' not in email:
         return jsonify({"message": "E-mail inválido", "error": True}), 401
     if his_med:
@@ -526,10 +515,7 @@ def editar_perfil():
         print("Erro em /usuarios/editar")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 # Entrega os campos de dados já existentes para o usuário se editar
@@ -585,10 +571,7 @@ def trazer_campos_editar_a_si_mesmo():
         print("Erro em /usuarios/info")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/usuarios/<int:tipo_logado>/<int:pagina>/<int:tipo_listar>", methods=["GET"])
@@ -628,7 +611,7 @@ def listar_usuarios(tipo_logado, pagina=1, tipo_listar=1):  # Se a página for 0
             WHERE TIPO = 2 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         elif tipo_listar == 3:
             if tipo_logado < 3:
-                return jsonify({"message": "Você não tem permissão para ver esse tipo de usuário", "error": True}), 401
+                return jsonify({"message": "Você não tem permissão para ver esse tipo de usuário.", "error": True}), 401
             cur.execute(f"""SELECT ID_USUARIO, NOME, EMAIL, TELEFONE, ATIVO FROM USUARIOS 
                         WHERE TIPO = 3 ORDER BY ID_USUARIO DESC ROWS {inicial} TO {final}""")
         else:
@@ -640,10 +623,7 @@ def listar_usuarios(tipo_logado, pagina=1, tipo_listar=1):  # Se a página for 0
         print("Erro em /usuarios/admin/<int:pagina>/<int:tipo>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/usuarios/info/<int:id_usuario>/<int:tipo_logado>", methods=["GET"])
@@ -709,10 +689,7 @@ def trazer_campos_editar_outro(id_usuario, tipo_logado):
         print("Erro em /usuarios/info/<int:id_usuario>/<int:tipo_logado>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/usuarios/<int:id_usuario>/editar/<int:tipo_logado>", methods=["PUT"])
@@ -772,8 +749,7 @@ def editar_outro_usuario(id_usuario, tipo_logado):
             return jsonify({"message": "O CPF precisa ter 11 dígitos", "error": True}), 401
     if tel:
         if len(tel1) != 13:
-            return jsonify({"message": """O telefone precisa ser enviado
-                     em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
+            return jsonify({"message": """O telefone precisa ser enviado em 13 dígitos exemplo: +55 (18) 12345-1234 = 5518123451234""", "error": True}), 401
     if email:
         if '@' not in email:
             return jsonify({"message": "E-mail inválido", "error": True}), 401
@@ -919,13 +895,9 @@ def editar_outro_usuario(id_usuario, tipo_logado):
         print("Erro em /usuarios/<int:id_usuario>/editar/<int:tipo_logado>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
-# TESTAR E CORRIGIR
 @app.route("/usuarios/<int:id_usuario>/alternar-ativo", methods=["GET"])
 def alternar_ativo_de_usuario(id_usuario):
 
@@ -957,10 +929,7 @@ def alternar_ativo_de_usuario(id_usuario):
         print("erro em /usuarios/<int:id_usuario>/alternar-ativo")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 global_contagem_erros = {}
@@ -1048,10 +1017,7 @@ def logar():
         raise
 
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/logout', methods=["GET"])
@@ -1123,10 +1089,7 @@ def criar_plano(id_usuario):
         print("Erro em /planos/criar/<int:id_usuario>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/planos/adicionar-exercicio/<int:id_plano>", methods=["POST"])
@@ -1180,10 +1143,7 @@ def colocar_novo_exercicio_no_plano(id_plano):
         print("Erro em /planos/adicionar-exercicio/<int:id_plano>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/planos/editar/<int:id_plano>', methods=["PUT"])
@@ -1222,10 +1182,7 @@ def editar_plano(id_plano):
         print("Erro em /planos/editar/<int:id_plano>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/planos/excluir/<int:id_plano>', methods=["DELETE"])
@@ -1254,10 +1211,7 @@ def excluir_plano(id_plano):
         print("Erro ao excluir plano")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 # Visualiza todos os exercícios do plano do usuário e os dias de cada um
@@ -1295,10 +1249,7 @@ def visualizar_plano_de_aluno(id_usuario):
         print("Erro em visualizar_plano_de_aluno")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/planos/retirar-exercicio/<int:id_plano>', methods=["DELETE"])
@@ -1336,10 +1287,7 @@ def retirar_exercicio_do_plano(id_plano):
         print("Erro em /planos/adicionar-exercicio/<int:id_plano>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 # Traz todos os dados de todos os exercícios
@@ -1365,10 +1313,7 @@ def ver_biblioteca_de_exercicios(resumir=0):
         print("erro em /exercícios")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/exercicios/detalhes/<int:id_exercicio>", methods=["GET"])  # Se resumir não for 0, trazer apenas nome e IDs
@@ -1404,10 +1349,7 @@ def ver_exercicios(id_exercicio):
         print("erro em /exercícios")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/exercicios/criar/", methods=["POST"])
@@ -1463,10 +1405,7 @@ def criar_exercicio():
         print("Erro em criar exercício")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/exercicios/excluir/<int:id_exercicio>', methods=["DELETE"])
@@ -1490,10 +1429,7 @@ def excluir_exercicio(id_exercicio):
         con.commit()
         return jsonify({"message": "Exercício excluído com sucesso!", "error": False}), 200
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route("/exercicios/editar/<int:id_exercicio>", methods=["PUT"])
@@ -1547,10 +1483,7 @@ def editar_exercicio(id_exercicio):
         print("Erro em /exercicios/editar/<int:id_exercicio>")
         raise
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
 
 @app.route('/grupos_musculares', methods=['GET'])
@@ -1572,10 +1505,7 @@ def trazer_grupos_musculares():
         raise
 
     finally:
-        try:
-            cur.close()
-        except Exception:
-            pass
+        cur.close()
 
     # exercicios = data.get('exerciciosSelecionados', []).split(',')
 
